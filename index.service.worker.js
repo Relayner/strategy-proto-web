@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1789389082|1770393';
+const CACHE_VERSION = '1789411177|1805800';
 /** @type {string} */
 const CACHE_PREFIX = 'Strategy Prototy-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
