@@ -1,8 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 	<head>
 		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<!--
+		ПОДЗЕМЕЛЬЕ-UX (отзыв владельца 2026-09-24, п. 6; решение 2026-09-26; трек layout): оболочка веб-пресета «Web Under».
+		ПЗ-42 «Б» только для подземелья: viewport-fit=cover — холст на весь экран iPhone в альбоме (926×428 pt, под вырез и
+		скругления), без пустых полос по 47 pt слева и справа, как у обычного «Web» (ПЗ-42 «А», он не меняется).
+		UI слоя сам отступает на env(safe-area-inset-*): их читает scripts/ui/under_safe_area.gd через JavaScriptBridge.
+		window.ugUnderShell.setCover(on) — игра снимает cover при выходе из подземелья (меню и поверхность — как в «Web») и
+		возвращает при входе. Без параметра ?scene=… сборка сразу открывает подземелье (?scene=under); другая сцена в строке
+		запроса (?scene=mission, bench…) стартует без cover — как в «Web».
+		Остальное — стандартная оболочка Godot 4.6.3 (godot.html шаблона web_nothreads).
+		-->
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
 		<title>Strategy Prototype</title>
 		<style>
 html, body, #canvas {
@@ -11,11 +21,19 @@ html, body, #canvas {
 	border: 0;
 }
 
+html, body {
+	width: 100%;
+	height: 100%;
+}
+
 body {
 	color: white;
 	background-color: black;
 	overflow: hidden;
 	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
 }
 
 #canvas {
@@ -90,13 +108,54 @@ body {
 	z-index: 1;
 }
 		</style>
+		<script>
+(function () {
+	// Сборка подземелья: без ?scene=… — сразу в подземелье (boot читает scene из строки запроса).
+	let scene = 'under';
+	try {
+		const q = new URLSearchParams(window.location.search);
+		if (!q.has('scene')) {
+			q.set('scene', 'under');
+			window.history.replaceState(null, '', window.location.pathname + '?' + q.toString() + window.location.hash);
+		}
+		scene = q.get('scene');
+	} catch (e) {
+		console.warn('[under_shell] scene=under:', e);
+	}
+	function viewportMeta() {
+		let m = document.querySelector('meta[name="viewport"]');
+		if (!m) {
+			m = document.createElement('meta');
+			m.name = 'viewport';
+			m.content = 'width=device-width, user-scalable=no, initial-scale=1.0';
+			document.head.appendChild(m);
+		}
+		return m;
+	}
+	// API оболочки для игры (scripts/ui/under_safe_area.gd). Есть только в этой оболочке: в обычном «Web» игра ничего
+	// не переключает, отступы там нулевые (без cover env(safe-area-inset-*) = 0).
+	window.ugUnderShell = {
+		version: 1,
+		setCover: function (on) {
+			const m = viewportMeta();
+			const base = m.content.replace(/,?\s*viewport-fit=[a-z]+/g, '');
+			m.content = on ? base + ', viewport-fit=cover' : base;
+			return m.content;
+		},
+	};
+	// Другая сцена по ?scene=… (меню, поверхность) — без cover, как в «Web»; подземелье включит его само при входе.
+	if (scene !== 'under') {
+		window.ugUnderShell.setCover(false);
+	}
+}());
+		</script>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 <link rel="manifest" href="index.manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Strategy">
+<meta name="apple-mobile-web-app-title" content="Подземелье">
 <script>if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().then(function(p){ console.log('storage persisted:', p); }); }</script>
 	</head>
 	<body>
@@ -116,7 +175,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":2536252,"index.wasm":37700666},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":2638932,"index.wasm":37700666},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
