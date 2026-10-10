@@ -351,9 +351,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* 76c09c06a394c241 and the integrity core are injected by package_under_pwa.py. */
+/* 70608e3478a175a8 and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = '76c09c06a394c241';
+const SHELL_VERSION = '70608e3478a175a8';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
@@ -383,7 +383,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
 	const port = event.ports && event.ports[0];
 	if (!port || !event.source || !event.source.url || !event.source.url.startsWith(SCOPE)) return;
-	if (event.data && event.data.type === 'PING') { port.postMessage({type: 'PONG', protocol: 1}); return; }
+	if (event.data && event.data.type === 'PING') { port.postMessage({type: 'PONG', protocol: 1, workerShell: SHELL_VERSION}); return; }
 	if (!event.data || event.data.type !== 'CHECK') return;
 	event.waitUntil((async () => {
 		try {

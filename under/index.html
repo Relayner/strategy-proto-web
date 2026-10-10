@@ -45,16 +45,29 @@
   </main>
   <div id="game" hidden><iframe id="game-frame" title="Подземелье" allow="autoplay; fullscreen; gamepad" allowfullscreen></iframe><button id="back" aria-label="Вернуться в меню">‹ Меню</button></div>
   <section id="gate" role="status" aria-live="polite">
-    <div class="gate-card"><div class="crest" aria-hidden="true">◆</div><h2 id="gate-title">Проверяем обновления</h2><p id="gate-message">Для первого запуска нужна сеть.</p><progress id="progress" max="1"></progress><p id="progress-text"></p><div class="gate-actions"><button id="retry" hidden>Повторить проверку</button><button id="offline" hidden>Играть в загруженную версию</button></div></div>
+    <div class="gate-card"><div class="crest" aria-hidden="true">◆</div><h2 id="gate-title">Проверяем обновления</h2><p id="gate-message">Для первого запуска нужна сеть.</p><progress id="progress" max="1"></progress><p id="progress-text"></p><div class="gate-actions"><button id="retry" hidden>Повторить проверку</button><button id="offline" hidden>Играть в загруженную версию</button><button id="gate-diagnostics">Отчёт о запуске</button></div></div>
   </section>
   <dialog id="leave-dialog"><h2>Вернуться в меню?</h2><p>Текущая партия завершится. Сохраните её в игровом меню, если хотите продолжить позже.</p><div class="gate-actions"><button id="stay">Продолжить игру</button><button id="leave">В меню</button></div></dialog>
-  <dialog id="diagnostics-dialog"><h2>Отчёт о запуске</h2><p>После сбоя здесь сохраняются сборка, этап загрузки и ошибки запуска. Отчёт хранится только на этом устройстве.</p><textarea id="diagnostics-report" aria-label="Отчёт о запуске" readonly spellcheck="false"></textarea><div class="gate-actions"><button id="diagnostics-close">Закрыть</button></div></dialog>
+  <dialog id="diagnostics-dialog"><h2>Отчёт о запуске</h2><p>Здесь сохраняются этап обновления, последний файл и объём загрузки, ошибки и отчёты запуска игры. Отчёт хранится только на этом устройстве.</p><textarea id="diagnostics-report" aria-label="Отчёт о запуске" readonly spellcheck="false"></textarea><div class="gate-actions"><button id="diagnostics-close">Закрыть</button></div></dialog>
   <script>/* A bounded device-local launch receipt. It sends no reports over the network. */
 (function () {
   'use strict';
   const key = 'under-pwa-launch-v1:' + new URL('./', document.baseURI).pathname;
   const phases = new Set(['engine-loading','engine-ready','start-failed','runtime-error','webgl-lost']);
-  let saved = {current:null, previous:[]};
+  const updatePhases = new Set(['update-checking','update-downloading','update-retiring','update-ready','update-failed']);
+  let saved = {current:null, previous:[], update:null, previousUpdates:[]};
+  let lastWrite = 0;
+  const label = (v, max = 96) => typeof v === 'string' && /^[a-zA-Z0-9_.-]+$/.test(v) ? v.slice(0,max) : '';
+  const bytes = (v) => Number.isSafeInteger(v) && v >= 0 && v <= 1073741824 ? v : 0;
+  const errorText = (v) => typeof v === 'string' ? v.replace(/\b(?:https?|file):\/\/\S+/gi,'[url]').replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,240) : '';
+  function boundedUpdate(value) {
+    if (!value || typeof value !== 'object' || !updatePhases.has(value.phase)) return null;
+    return {phase:value.phase, shell:label(value.shell), workerShell:label(value.workerShell),
+      protocol:bytes(value.protocol), build:label(value.build,80), release:label(value.release),
+      file:label(value.file,80), loaded:bytes(value.loaded), total:bytes(value.total), reused:bytes(value.reused),
+      started:String(value.started || '').slice(0,32), updated:String(value.updated || '').slice(0,32),
+      error:value.error ? {code:label(value.error.code,32), message:errorText(value.error.message)} : null};
+  }
   function boundedRecord(value) {
     if (!value || typeof value !== 'object' || typeof value.release !== 'string'
       || !/^[a-zA-Z0-9_-]{1,96}$/.test(value.release) || typeof value.scene !== 'string'
@@ -74,10 +87,36 @@
     if (raw && raw.length < 12000) {
       const value = JSON.parse(raw);
       if (value && Array.isArray(value.previous)) saved = {current:boundedRecord(value.current),
-        previous:value.previous.map(boundedRecord).filter(Boolean).slice(0,2)};
+        previous:value.previous.map(boundedRecord).filter(Boolean).slice(0,2), update:boundedUpdate(value.update),
+        previousUpdates:Array.isArray(value.previousUpdates) ? value.previousUpdates.map(boundedUpdate).filter(Boolean).slice(0,1) : []};
     }
   } catch (_) {} // Persistence is optional and must never block play.
-  function persist() { try { localStorage.setItem(key, JSON.stringify(saved)); } catch (_) {} }
+  function persist(force = true) {
+    // Byte callbacks update memory immediately. Avoid synchronous storage writes
+    // for every tiny chunk; no timer/heartbeat is added, and terminal phases flush.
+    if (!force && Date.now() - lastWrite < 1000) return;
+    lastWrite = Date.now();
+    // Keep the existing local schema/key and engine history, with a strict total
+    // serialized bound even when JSON escaping expands old engine error strings.
+    let raw = JSON.stringify(saved);
+    while (raw.length >= 12000) {
+      if (saved.previousUpdates.length) saved.previousUpdates.pop();
+      else if (saved.previous.length) saved.previous.pop();
+      else if (saved.current?.errors.length) saved.current.errors.pop();
+      else break;
+      raw = JSON.stringify(saved);
+    }
+    try { if (raw.length < 12000) localStorage.setItem(key, raw); } catch (_) {}
+  }
+  function updateReceipt(phase, data = {}) {
+    if (!saved.update || !updatePhases.has(phase)) return;
+    const fields = ['workerShell','protocol','build','release','file','loaded','total','reused','error'];
+    const record = {...saved.update, phase, updated:new Date().toISOString()};
+    for (const field of fields) if (Object.prototype.hasOwnProperty.call(data,field)) record[field] = data[field];
+    const changed = saved.update.phase !== phase || saved.update.file !== record.file;
+    saved.update = boundedUpdate(record);
+    persist(phase !== 'update-downloading' || changed);
+  }
   function update(phase, data = {}) {
     if (!saved.current) return;
     const record = saved.current;
@@ -99,6 +138,13 @@
       persist();
     },
     end(reason) { update(reason === 'onExit' ? 'exited' : 'exit-deadline'); },
+    beginUpdate(shell) {
+      if (saved.update) saved.previousUpdates = [saved.update];
+      const now = new Date().toISOString();
+      saved.update = boundedUpdate({phase:'update-checking',shell,started:now,updated:now});
+      persist();
+    },
+    updateState: updateReceipt,
   };
   window.addEventListener('message', (event) => {
     const frame = document.getElementById('game-frame');
@@ -111,10 +157,13 @@
   });
   const button = document.getElementById('diagnostics');
   const dialog = document.getElementById('diagnostics-dialog');
-  button.addEventListener('click', () => {
+  const report = () => {
+    persist(); // The requested report flushes the latest real in-memory byte count.
     document.getElementById('diagnostics-report').value = JSON.stringify(saved, null, 2);
     dialog.showModal();
-  });
+  };
+  button.addEventListener('click', report);
+  document.getElementById('gate-diagnostics')?.addEventListener('click', report);
   document.getElementById('diagnostics-close').addEventListener('click', () => dialog.close());
 }());
 </script>
@@ -123,9 +172,11 @@
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5']);
+const SHELL_VERSION = '70608e3478a175a8';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let hiddenAt = 0;
 let retiring = null;
+function updateDiagnostic(phase, data={}){try{window.ugUnderDiagnostics?.updateState?.(phase,data);}catch(_){} }
 function gate(title, message){ $('gate').hidden=false; $('gate-title').textContent=title; $('gate-message').textContent=message; $('retry').hidden=true; $('offline').hidden=true; $('progress').hidden=false; $('progress').removeAttribute('value'); $('progress-text').textContent=''; sceneButtons.forEach((b)=>b.disabled=true); }
 function showNotes(release){
   const section=$('release-notes');
@@ -156,7 +207,7 @@ function rpc(type, progress, payload={}){
     let timer,hardTimer,idleDue,finished=false,lastLoaded=-1,lastFile=null,wasHidden=document.hidden;
     const visibility=()=>{const returned=wasHidden && !document.hidden;wasHidden=document.hidden;if(returned && !finished)resetIdle();};
     const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);clearTimeout(hardTimer);document.removeEventListener('visibilitychange',visibility);channel.port1.close();if(error)reject(error);else resolve(data);};
-    const timeout=()=>finish(new Error('Проверка заняла слишком долго. Повторите попытку.'));
+    const timeout=(code)=>{const error=new Error('Проверка заняла слишком долго. Повторите попытку.');error.code=code;finish(error);};
     // The worker gets 60 seconds without asset bytes to return its own error.
     // Healthy streamed downloads can exceed one file's 15-minute limit overall.
     const idleTimeout=()=>{
@@ -166,12 +217,12 @@ function rpc(type, progress, payload={}){
       if(type!=='PING' && (document.hidden || wasHidden || Date.now()-idleDue>1000)){
         wasHidden=document.hidden;resetIdle();return;
       }
-      timeout();
+      timeout(type==='PING'?'PING_TIMEOUT':'RPC_IDLE');
     };
     const resetIdle=()=>{clearTimeout(timer);const ms=type==='PING'?10000:120000;idleDue=Date.now()+ms;timer=setTimeout(idleTimeout,ms);};
     if(type!=='PING')document.addEventListener('visibilitychange',visibility);
     resetIdle();
-    if(type!=='PING')hardTimer=setTimeout(timeout,3600000);
+    if(type!=='PING')hardTimer=setTimeout(()=>timeout('RPC_HARD'),3600000);
     channel.port1.onmessage=(event)=>{
       if(finished)return;
       const data=event.data;
@@ -210,7 +261,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=76c09c06a394c241',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=70608e3478a175a8',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
@@ -219,15 +270,18 @@ async function connect(){
   await waitForController(candidate || registration.active || active.active);
   worker=navigator.serviceWorker.controller || active.active;
   const pong=await rpc('PING'); if(pong.protocol!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
+  updateDiagnostic('update-checking',{workerShell:pong.workerShell,protocol:pong.protocol});
 }
 async function check(){
   if(busy)return;busy=true;offlineCandidate=null;offlineAcceptedId=null;gate('Проверяем обновления','Проверим сборку перед запуском игры.');
+  try{window.ugUnderDiagnostics?.beginUpdate?.(SHELL_VERSION);}catch(_){}
   try{
     // leaveGame clears inGame while its Engine still waits for onExit/deadline.
     // Hold busy before waiting so foreground/retry cannot connect or CHECK early.
     if(retiring)await retiring;
     await connect();
     const progress=(data)=>{
+      updateDiagnostic('update-downloading',{file:data.file,loaded:data.loaded,total:data.total,reused:data.reused});
       $('gate-title').textContent='Загружаем обновление'; $('gate-message').textContent='Игра откроется, когда сборка будет загружена и проверена целиком.';
       $('progress').max=data.total||1; $('progress').value=data.loaded;
       $('progress-text').textContent=`${(data.loaded/1048576).toFixed(1)} / ${(data.total/1048576).toFixed(1)} МБ`;
@@ -236,17 +290,23 @@ async function check(){
     const payload=inGame && current?{activeReleaseId:current.id}:{};
     let result=await rpc('CHECK',progress,payload);
     if(result.type==='RETIRE_REQUIRED'){
+      updateDiagnostic('update-retiring',{release:result.release?.id,build:result.release?.build});
       await leaveGame();
       gate('Проверяем обновления','Подготавливаем новую сборку.');
+      updateDiagnostic('update-checking');
       result=await rpc('CHECK',progress);
     }
-    if(result.type==='READY')await ready(result.release);
+    if(result.type==='READY'){
+      updateDiagnostic('update-ready',{release:result.release?.id,build:result.release?.build});
+      await ready(result.release);
+    }
     else{
+      updateDiagnostic('update-failed',{error:{code:result.code||'UPDATE',message:result.message||'Не удалось подготовить игру.'}});
       offlineCandidate=result.offline || null; $('gate-title').textContent=offlineCandidate?'Нет соединения':'Обновление не завершено';
       $('gate-message').textContent=result.message || 'Не удалось подготовить игру.';
       $('retry').hidden=false; $('offline').hidden=!offlineCandidate; $('progress').hidden=true; $('progress-text').textContent='';
     }
-  }catch(error){$('gate-title').textContent='Не удалось запустить приложение'; $('gate-message').textContent=error.message; $('retry').hidden=false; $('progress').hidden=true;}
+  }catch(error){updateDiagnostic('update-failed',{error:{code:error.code||'CONNECT',message:error.message}});$('gate-title').textContent='Не удалось запустить приложение'; $('gate-message').textContent=error.message; $('retry').hidden=false; $('progress').hidden=true;}
   finally{busy=false;}
 }
 function retireFrame(frame){
