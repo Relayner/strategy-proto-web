@@ -162,7 +162,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=3e2c52b78d964db3',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=6e5fcad6bbcf1887',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
@@ -175,6 +175,9 @@ async function connect(){
 async function check(){
   if(busy)return;busy=true;offlineCandidate=null;offlineAcceptedId=null;gate('Проверяем обновления','Проверим сборку перед запуском игры.');
   try{
+    // leaveGame clears inGame while its Engine still waits for onExit/deadline.
+    // Hold busy before waiting so foreground/retry cannot connect or CHECK early.
+    if(retiring)await retiring;
     await connect();
     const progress=(data)=>{
       $('gate-title').textContent='Загружаем обновление'; $('gate-message').textContent='Игра откроется, когда сборка будет загружена и проверена целиком.';
