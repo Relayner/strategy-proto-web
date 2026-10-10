@@ -38,6 +38,7 @@
         <button data-scene="under_test3" disabled><i>03</i><span>Большие залы и тренировка</span><small>Общие комнаты, вместимость и арена</small></button>
         <button data-scene="under_test4" disabled><i>04</i><span>Вода, разведка и провал</span><small>Туман, пещеры и глубинные туннели</small></button>
         <button data-scene="under_test5" disabled><i>05</i><span>Развитая база и лечение</span><small>Экономика и восстановление в логове</small></button>
+        <button data-scene="under_test6" disabled><i>06</i><span>Пополнение и две атаки</span><small>Короткий цикл: новый житель → 1 враг → житель → 2 врага</small></button>
       </div>
     </section>
     <section id="release-notes" class="release-notes" aria-labelledby="notes-title" hidden><p class="eyebrow">Что нового <span id="notes-build"></span></p><h2 id="notes-title"></h2><ul id="notes-changes"></ul><p id="notes-check"></p></section>
@@ -171,8 +172,8 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
-const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5']);
-const SHELL_VERSION = '70608e3478a175a8';
+const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6']);
+const SHELL_VERSION = 'e640161c91670426';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let hiddenAt = 0;
 let retiring = null;
@@ -261,7 +262,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=70608e3478a175a8',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=e640161c91670426',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
