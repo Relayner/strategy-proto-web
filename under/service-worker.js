@@ -96,6 +96,48 @@
 			}
 			return true;
 		}
+		async reuseCandidates(release) {
+			const completed = [];
+			for (const name of await this.caches.keys()) {
+				if (!name.startsWith(this.prefix + 'release-') || name === this.cacheName(release)) continue;
+				const cache = await this.caches.open(name);
+				const marker = await cache.match(this.marker);
+				if (!marker) continue;
+				try {
+					const prior = validateRelease(await marker.json());
+					if (name === this.cacheName(prior)) completed.push({release: prior, cache});
+				} catch (_) {}
+			}
+			completed.sort((a, b) => String(b.release.created_utc || '').localeCompare(String(a.release.created_utc || '')));
+			const candidates = [];
+			for (const item of completed) {
+				if (await this.ready(item.release)) candidates.push(item);
+				// Bound local body reads to the two most recent complete releases.
+				if (candidates.length === 2) break;
+			}
+			return candidates;
+		}
+		async digest(buffer) {
+			return Array.from(new Uint8Array(await this.crypto.subtle.digest('SHA-256', buffer)),
+				(v) => v.toString(16).padStart(2, '0')).join('');
+		}
+		async reusable(file, candidates) {
+			for (const item of candidates) {
+				if (!item.release.files.some((prior) => prior.path === file.path && prior.bytes === file.bytes && prior.sha256 === file.sha256)) continue;
+				try {
+					const response = await item.cache.match(new URL(item.release.base + file.path, this.scope).href);
+					if (!response || response.headers.get('X-Under-Pwa-Sha256') !== file.sha256 ||
+						Number(response.headers.get('Content-Length')) !== file.bytes) continue;
+					// Metadata alone cannot establish integrity. Recheck actual cached bytes,
+					// one file at a time, before putting them under the new release URL.
+					const buffer = await response.arrayBuffer();
+					if (buffer.byteLength !== file.bytes) continue;
+					const digest = await this.digest(buffer);
+					if (digest === file.sha256) return {response, buffer, digest};
+				} catch (_) {} // A missing or corrupt old file is repaired by the network path.
+			}
+			return null;
+		}
 		async ensure(release, progress = () => {}) {
 			validateRelease(release);
 			const existing = this.jobs.get(release.id);
@@ -120,23 +162,27 @@
 			const stagingName = this.prefix + 'staging-' + release.id + '-' + attempt;
 			const cache = await this.caches.open(stagingName);
 			const total = release.files.reduce((sum, f) => sum + f.bytes, 0);
-			let loaded = 0;
-			progress({loaded, total, file: ''});
+			let loaded = 0, reused = 0;
+			progress({loaded, total, reused, file: ''});
 			try {
+				const candidates = await this.reuseCandidates(release);
 				for (const file of release.files) {
 					const url = new URL(release.base + file.path, this.scope).href;
-					let response, buffer;
-					progress({loaded, total, file: file.path});
-					try {
-						({response, buffer} = await this.network(url, {cache: 'no-store', credentials: 'same-origin'}, this.assetTimeoutMs,
-							async (item) => {
-								if (!item.ok) throw new ReleaseError('DOWNLOAD', 'Не удалось загрузить обновление целиком.');
-								return {response: item, buffer: await item.arrayBuffer()};
-							}));
+					let response, buffer, digest;
+					progress({loaded, total, reused, file: file.path});
+					const cached = await this.reusable(file, candidates);
+					if (cached) ({response, buffer, digest} = cached);
+					else {
+						try {
+							({response, buffer} = await this.network(url, {cache: 'no-store', credentials: 'same-origin'}, this.assetTimeoutMs,
+								async (item) => {
+									if (!item.ok) throw new ReleaseError('DOWNLOAD', 'Не удалось загрузить обновление целиком.');
+									return {response: item, buffer: await item.arrayBuffer()};
+								}));
+						}
+						catch (error) { throw error instanceof ReleaseError ? error : new ReleaseError('DOWNLOAD', 'Загрузка обновления прервалась.'); }
+						digest = await this.digest(buffer);
 					}
-					catch (error) { throw error instanceof ReleaseError ? error : new ReleaseError('DOWNLOAD', 'Загрузка обновления прервалась.'); }
-					const digest = Array.from(new Uint8Array(await this.crypto.subtle.digest('SHA-256', buffer)),
-						(v) => v.toString(16).padStart(2, '0')).join('');
 					if (buffer.byteLength !== file.bytes || digest !== file.sha256) {
 						throw new ReleaseError('INTEGRITY', 'Файл обновления повреждён. Повторите загрузку.');
 					}
@@ -146,7 +192,9 @@
 					headers.set('Content-Length', String(buffer.byteLength));
 					headers.set('X-Under-Pwa-Sha256', digest);
 					await cache.put(url, new Response(buffer, {status: 200, headers}));
-					loaded += file.bytes; progress({loaded, total, file: file.path});
+					loaded += file.bytes;
+					if (cached) reused += file.bytes;
+					progress({loaded, total, reused, file: file.path});
 				}
 				const accepted = await this.caches.open(name);
 				for (const file of release.files) {
@@ -201,9 +249,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* 13e954c0f54bef7b and the integrity core are injected by package_under_pwa.py. */
+/* 12fa2f05e49a8b0f and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = '13e954c0f54bef7b';
+const SHELL_VERSION = '12fa2f05e49a8b0f';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
