@@ -31,10 +31,12 @@
 			[...release.files].sort((a, b) => a.path.localeCompare(b.path)).map((f) => [f.path, f.bytes, f.sha256])]);
 	}
 	class ReleaseCache {
-		constructor({scope, caches, fetch, crypto, now = () => Date.now(), metadataTimeoutMs = 15000, assetTimeoutMs = 300000}) {
+		constructor({scope, caches, fetch, crypto, now = () => Date.now(), metadataTimeoutMs = 15000,
+			assetTimeoutMs = 900000, assetIdleTimeoutMs = 60000}) {
 			this.scope = new URL('./', scope).href;
 			this.caches = caches; this.fetch = fetch; this.crypto = crypto; this.now = now;
 			this.metadataTimeoutMs = metadataTimeoutMs; this.assetTimeoutMs = assetTimeoutMs;
+			this.assetIdleTimeoutMs = assetIdleTimeoutMs;
 			this.prefix = `under-pwa-${encodeURIComponent(new URL(this.scope).pathname)}-`;
 			this.marker = new URL('__complete__', this.scope).href;
 			this.stateUrl = new URL('__latest__', this.scope).href;
@@ -59,6 +61,69 @@
 			})();
 			try { return await Promise.race([request, deadline]); }
 			finally { clearTimeout(timer); }
+		}
+		async streamAsset(url, file, progress) {
+			const controller = new AbortController();
+			let reader, buffer, idleTimer, totalTimer, closed = false, cancelled = false;
+			const cancel = () => {
+				if (!reader || cancelled) return;
+				cancelled = true;
+				// Cleanup must not wait for a transport which ignores abort or cancellation.
+				try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
+			};
+			const checkOpen = () => {
+				if (closed || controller.signal.aborted) throw new Error('Update request timed out.');
+			};
+			let expire;
+			const deadline = new Promise((_, reject) => {
+				expire = () => {
+					closed = true; buffer = null;
+					controller.abort(); cancel();
+					reject(new Error('Update request timed out.'));
+				};
+				totalTimer = setTimeout(expire, this.assetTimeoutMs);
+			});
+			const resetIdle = () => {
+				clearTimeout(idleTimer);
+				idleTimer = setTimeout(expire, this.assetIdleTimeoutMs);
+			};
+			resetIdle(); // Includes waiting for response headers.
+			const request = (async () => {
+				const response = await this.fetch(url, {cache: 'no-store', credentials: 'same-origin', signal: controller.signal});
+				checkOpen();
+				if (!response.ok) throw new ReleaseError('DOWNLOAD', 'Не удалось загрузить обновление целиком.');
+				resetIdle();
+				// fetch exposes decoded bytes, so Content-Length may describe a compressed body.
+				// Bound allocation and every copy to the integrity manifest, never that header.
+				buffer = new Uint8Array(file.bytes);
+				if (!response.body) {
+					if (file.bytes !== 0) throw new ReleaseError('INTEGRITY', 'Файл обновления повреждён. Повторите загрузку.');
+					return {response, buffer: buffer.buffer};
+				}
+				reader = response.body.getReader();
+				let received = 0;
+				while (true) {
+					const {done, value} = await reader.read();
+					checkOpen(); // Ignored abort must not copy bytes or publish late progress.
+					if (done) break;
+					if (!(value instanceof Uint8Array) || value.byteLength > file.bytes - received) {
+						throw new ReleaseError('INTEGRITY', 'Файл обновления повреждён. Повторите загрузку.');
+					}
+					if (value.byteLength === 0) continue;
+					buffer.set(value, received); received += value.byteLength;
+					resetIdle();
+					progress(received);
+				}
+				if (received !== file.bytes) throw new ReleaseError('INTEGRITY', 'Файл обновления повреждён. Повторите загрузку.');
+				return {response, buffer: buffer.buffer};
+			})();
+			try { return await Promise.race([request, deadline]); }
+			finally {
+				closed = true; buffer = null;
+				clearTimeout(idleTimer); clearTimeout(totalTimer);
+				cancel();
+				if (reader) { try { reader.releaseLock(); } catch (_) {} }
+			}
 		}
 		async readState() {
 			const response = await (await this.caches.open(this.prefix + 'state')).match(this.stateUrl);
@@ -174,11 +239,8 @@
 					if (cached) ({response, buffer, digest} = cached);
 					else {
 						try {
-							({response, buffer} = await this.network(url, {cache: 'no-store', credentials: 'same-origin'}, this.assetTimeoutMs,
-								async (item) => {
-									if (!item.ok) throw new ReleaseError('DOWNLOAD', 'Не удалось загрузить обновление целиком.');
-									return {response: item, buffer: await item.arrayBuffer()};
-								}));
+							({response, buffer} = await this.streamAsset(url, file,
+								(received) => progress({loaded: loaded + received, total, reused, file: file.path})));
 						}
 						catch (error) { throw error instanceof ReleaseError ? error : new ReleaseError('DOWNLOAD', 'Загрузка обновления прервалась.'); }
 						digest = await this.digest(buffer);
@@ -260,9 +322,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* 3e71ed42c0037fe7 and the integrity core are injected by package_under_pwa.py. */
+/* 26ba83d6e5f4a603 and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = '3e71ed42c0037fe7';
+const SHELL_VERSION = '26ba83d6e5f4a603';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;

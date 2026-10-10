@@ -153,11 +153,29 @@ async function ready(release, offline=false){
 function rpc(type, progress, payload={}){
   return new Promise((resolve,reject)=>{
     const channel=new MessageChannel();
-    const timer=setTimeout(()=>{channel.port1.close();reject(new Error('Проверка заняла слишком долго. Повторите попытку.'));},type==='PING'?10000:900000);
-    channel.port1.onmessage=(event)=>{const data=event.data;if(data.type==='PROGRESS'){if(progress)progress(data);return;}clearTimeout(timer);channel.port1.close();resolve(data);};
+    let timer,hardTimer,finished=false,lastLoaded=-1,lastFile=null;
+    const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);clearTimeout(hardTimer);channel.port1.close();if(error)reject(error);else resolve(data);};
+    const timeout=()=>finish(new Error('Проверка заняла слишком долго. Повторите попытку.'));
+    // The worker gets 60 seconds without asset bytes to return its own error.
+    // Healthy streamed downloads can exceed one file's 15-minute limit overall.
+    const resetIdle=()=>{clearTimeout(timer);timer=setTimeout(timeout,type==='PING'?10000:120000);};
+    resetIdle();
+    if(type!=='PING')hardTimer=setTimeout(timeout,3600000);
+    channel.port1.onmessage=(event)=>{
+      if(finished)return;
+      const data=event.data;
+      if(data.type==='PROGRESS'){
+        if(Number.isFinite(data.loaded) && (data.loaded>lastLoaded || data.file!==lastFile)){
+          lastLoaded=data.loaded;lastFile=data.file;resetIdle();
+        }
+        if(progress)progress(data);return;
+      }
+      finish(null,data);
+    };
     worker=navigator.serviceWorker.controller || worker;
-    if(!worker){clearTimeout(timer);channel.port1.close();channel.port2.close();reject(new Error('Приложение ещё обновляется. Повторите проверку.'));return;}
-    worker.postMessage({...payload,type},[channel.port2]);
+    if(!worker){channel.port2.close();finish(new Error('Приложение ещё обновляется. Повторите проверку.'));return;}
+    try{worker.postMessage({...payload,type},[channel.port2]);}
+    catch(error){channel.port2.close();finish(error);}
   });
 }
 function waitForActivation(candidate){
@@ -181,7 +199,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=3e71ed42c0037fe7',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=26ba83d6e5f4a603',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
