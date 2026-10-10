@@ -50,9 +50,11 @@ const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5']);
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let hiddenAt = 0;
+let retiring = null;
 function gate(title, message){ $('gate').hidden=false; $('gate-title').textContent=title; $('gate-message').textContent=message; $('retry').hidden=true; $('offline').hidden=true; $('progress').hidden=false; $('progress').removeAttribute('value'); $('progress-text').textContent=''; sceneButtons.forEach((b)=>b.disabled=true); }
-function ready(release, offline=false){
-  if(current && current.id!==release.id && inGame) leaveGame();
+async function ready(release, offline=false){
+  if(retiring)await retiring;
+  if(current && current.id!==release.id && inGame) await leaveGame();
   current=release; $('build').textContent=`Сборка ${release.build}${offline?' · без сети':''}`;
   offlineAcceptedId=offline?release.id:null;
   $('gate').hidden=true; sceneButtons.forEach((b)=>b.disabled=false);
@@ -62,37 +64,52 @@ function rpc(type, progress){
     const channel=new MessageChannel();
     const timer=setTimeout(()=>{channel.port1.close();reject(new Error('Проверка заняла слишком долго. Повторите попытку.'));},type==='PING'?10000:900000);
     channel.port1.onmessage=(event)=>{const data=event.data;if(data.type==='PROGRESS'){if(progress)progress(data);return;}clearTimeout(timer);channel.port1.close();resolve(data);};
+    worker=navigator.serviceWorker.controller || worker;
+    if(!worker){clearTimeout(timer);channel.port1.close();channel.port2.close();reject(new Error('Приложение ещё обновляется. Повторите проверку.'));return;}
     worker.postMessage({type},[channel.port2]);
+  });
+}
+function waitForActivation(candidate){
+  if(!candidate || candidate.state==='activated')return Promise.resolve(candidate);
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>finish(new Error('Не удалось завершить обновление приложения. Повторите проверку.')),30000);
+    const finish=(error)=>{clearTimeout(timer);candidate.removeEventListener('statechange',changed);if(error)reject(error);else resolve(candidate);};
+    const changed=()=>{if(candidate.state==='activated')finish();else if(candidate.state==='redundant')finish(new Error('Обновление приложения не завершено. Повторите проверку.'));};
+    candidate.addEventListener('statechange',changed);changed();
+  });
+}
+function waitForController(expected){
+  if(navigator.serviceWorker.controller && (!expected || navigator.serviceWorker.controller===expected))return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>finish(new Error('Приложение ещё устанавливается. Повторите проверку.')),30000);
+    const finish=(error)=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',changed);if(error)reject(error);else resolve();};
+    const changed=()=>{if(navigator.serviceWorker.controller && (!expected || navigator.serviceWorker.controller===expected))finish();};
+    navigator.serviceWorker.addEventListener('controllerchange',changed);changed();
   });
 }
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=19e922b39a6fc1d5',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=13e954c0f54bef7b',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
+  const candidate=registration.installing || registration.waiting;
+  if(candidate)await waitForActivation(candidate);
   const active=await navigator.serviceWorker.ready;
-  if(!navigator.serviceWorker.controller){
-    await new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>reject(new Error('Приложение ещё устанавливается. Повторите проверку.')),20000);
-      const changed=()=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',changed);resolve();};
-      navigator.serviceWorker.addEventListener('controllerchange',changed);
-      if(navigator.serviceWorker.controller)changed();
-    });
-  }
+  await waitForController(candidate || registration.active || active.active);
   worker=navigator.serviceWorker.controller || active.active;
   const pong=await rpc('PING'); if(pong.protocol!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
 }
 async function check(){
   if(busy)return;busy=true;offlineCandidate=null;offlineAcceptedId=null;gate('Проверяем обновления','Проверим сборку перед запуском игры.');
   try{
-    if(!worker)await connect();
+    await connect();
     const result=await rpc('CHECK',(data)=>{
       $('gate-title').textContent='Загружаем обновление'; $('gate-message').textContent='Игра откроется, когда сборка будет загружена и проверена целиком.';
       $('progress').max=data.total||1; $('progress').value=data.loaded;
       $('progress-text').textContent=`${(data.loaded/1048576).toFixed(1)} / ${(data.total/1048576).toFixed(1)} МБ`;
     });
-    if(result.type==='READY')ready(result.release);
+    if(result.type==='READY')await ready(result.release);
     else{
       offlineCandidate=result.offline || null; $('gate-title').textContent=offlineCandidate?'Нет соединения':'Обновление не завершено';
       $('gate-message').textContent=result.message || 'Не удалось подготовить игру.';
@@ -101,19 +118,50 @@ async function check(){
   }catch(error){$('gate-title').textContent='Не удалось запустить приложение'; $('gate-message').textContent=error.message; $('retry').hidden=false; $('progress').hidden=true;}
   finally{busy=false;}
 }
-function leaveGame(){ $('game-frame').removeAttribute('src'); $('game').hidden=true; $('menu').hidden=false; inGame=false; }
+function retireFrame(frame){
+  if(!frame || !frame.src)return Promise.resolve();
+  return new Promise((resolve)=>{
+    const channel=new MessageChannel();
+    let finished=false;
+    const finish=(fallback)=>{
+      if(finished)return;finished=true;clearTimeout(timer);channel.port1.close();
+      frame.remove();
+      console.info('[under-pwa] game retired',fallback?'deadline':'onExit');
+      resolve();
+    };
+    const timer=setTimeout(()=>finish(true),3000);
+    channel.port1.onmessage=(event)=>{if(event.data && event.data.type==='UNDER_PWA_EXIT')finish(false);};
+    try{frame.contentWindow.postMessage({type:'UNDER_PWA_QUIT'},new URL(frame.src,document.baseURI).origin,[channel.port2]);}
+    catch(error){channel.port2.close();finish(true);}
+  });
+}
+function leaveGame(){
+  if(retiring)return retiring;
+  if(!inGame)return Promise.resolve();
+  inGame=false;
+  gate('Завершаем игру','Подготавливаем меню.');
+  // Keep the canvas visible under the input gate so its frame loop can consume the quit request.
+  retiring=retireFrame($('game-frame')).finally(()=>{$('game').hidden=true;$('menu').hidden=false;retiring=null;});
+  return retiring;
+}
+function createGameFrame(){
+  const frame=document.createElement('iframe');frame.id='game-frame';frame.title='Подземелье';
+  frame.allow='autoplay; fullscreen; gamepad';frame.allowFullscreen=true;
+  $('game').insertBefore(frame,$('back'));return frame;
+}
 sceneButtons.forEach((button)=>button.addEventListener('click',async()=>{
-  const scene=button.dataset.scene;if(!current || !SCENES.has(scene) || busy)return;
+  const scene=button.dataset.scene;if(!current || !SCENES.has(scene) || busy || retiring || inGame)return;
   // Each game start checks the advertised release again, including a menu left open across a deployment.
   if(offlineAcceptedId!==current.id)await check();if(!$('gate').hidden || !current)return;
   const url=new URL(current.base+'index.html',document.baseURI);url.search=new URLSearchParams({scene,auto:'0'}).toString();
-  $('game-frame').src=url.href; $('menu').hidden=true; $('game').hidden=false; inGame=true;
+  const frame=$('game-frame') || createGameFrame();frame.src=url.href;
+  $('menu').hidden=true; $('game').hidden=false; inGame=true;
 }));
 $('retry').addEventListener('click',check);
-$('offline').addEventListener('click',()=>{if(offlineCandidate)ready(offlineCandidate,true);});
+$('offline').addEventListener('click',async()=>{if(offlineCandidate)await ready(offlineCandidate,true);});
 $('back').addEventListener('click',()=>$('leave-dialog').showModal());
 $('stay').addEventListener('click',()=>$('leave-dialog').close());
-$('leave').addEventListener('click',()=>{$('leave-dialog').close();leaveGame();check();});
+$('leave').addEventListener('click',async()=>{$('leave-dialog').close();await leaveGame();await check();});
 window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();installEvent=event;$('install').hidden=false;$('install-tip').hidden=true;});
 $('install').addEventListener('click',async()=>{if(!installEvent)return;await installEvent.prompt();await installEvent.userChoice;installEvent=null;$('install').hidden=true;});
 window.addEventListener('appinstalled',()=>{$('install').hidden=true;$('install-tip').hidden=true;});
