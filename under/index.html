@@ -153,12 +153,23 @@ async function ready(release, offline=false){
 function rpc(type, progress, payload={}){
   return new Promise((resolve,reject)=>{
     const channel=new MessageChannel();
-    let timer,hardTimer,finished=false,lastLoaded=-1,lastFile=null;
-    const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);clearTimeout(hardTimer);channel.port1.close();if(error)reject(error);else resolve(data);};
+    let timer,hardTimer,idleDue,finished=false,lastLoaded=-1,lastFile=null,wasHidden=document.hidden;
+    const visibility=()=>{const returned=wasHidden && !document.hidden;wasHidden=document.hidden;if(returned && !finished)resetIdle();};
+    const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);clearTimeout(hardTimer);document.removeEventListener('visibilitychange',visibility);channel.port1.close();if(error)reject(error);else resolve(data);};
     const timeout=()=>finish(new Error('Проверка заняла слишком долго. Повторите попытку.'));
     // The worker gets 60 seconds without asset bytes to return its own error.
     // Healthy streamed downloads can exceed one file's 15-minute limit overall.
-    const resetIdle=()=>{clearTimeout(timer);timer=setTimeout(timeout,type==='PING'?10000:120000);};
+    const idleTimeout=()=>{
+      // Background/suspended pages may queue byte messages behind their timer.
+      // Give those messages a fresh foreground window; worker deadlines still own
+      // network stalls, and the separate CHECK hard cap never moves.
+      if(type!=='PING' && (document.hidden || wasHidden || Date.now()-idleDue>1000)){
+        wasHidden=document.hidden;resetIdle();return;
+      }
+      timeout();
+    };
+    const resetIdle=()=>{clearTimeout(timer);const ms=type==='PING'?10000:120000;idleDue=Date.now()+ms;timer=setTimeout(idleTimeout,ms);};
+    if(type!=='PING')document.addEventListener('visibilitychange',visibility);
     resetIdle();
     if(type!=='PING')hardTimer=setTimeout(timeout,3600000);
     channel.port1.onmessage=(event)=>{
@@ -199,7 +210,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=26ba83d6e5f4a603',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=76c09c06a394c241',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;

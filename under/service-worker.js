@@ -1,6 +1,7 @@
 /* Shared by the generated service worker and the Node integrity tests. */
 (function (root) {
 	'use strict';
+	const MAX_PROGRESS_OBSERVERS = 64;
 	class ReleaseError extends Error {
 		constructor(code, message) { super(message); this.code = code; }
 	}
@@ -203,13 +204,41 @@
 			}
 			return null;
 		}
-		async ensure(release, progress = () => {}) {
+		observe(job, progress) {
+			if (typeof progress !== 'function') return;
+			// Retain only current observers and one latest snapshot, never a byte history.
+			if (!job.observers.has(progress) && job.observers.size >= MAX_PROGRESS_OBSERVERS) job.observers.delete(job.observers.values().next().value);
+			job.observers.add(progress);
+			if (job.progress) this.notify(job, progress);
+		}
+		notify(job, progress) {
+			try {
+				// One closed/disconnected port must not stop the shared integrity job or
+				// change another client's snapshot. False is an optional observer opt-out.
+				if (progress({...job.progress}) === false) job.observers.delete(progress);
+			} catch (_) { job.observers.delete(progress); }
+		}
+		publish(job, progress) {
+			job.progress = {...progress};
+			for (const observer of [...job.observers]) this.notify(job, observer);
+		}
+		async ensure(release, progress) {
 			validateRelease(release);
-			const existing = this.jobs.get(release.id);
-			if (existing) return existing;
-			const job = this.download(release, progress);
-			this.jobs.set(release.id, job);
-			try { return await job; } finally { this.jobs.delete(release.id); }
+			let job = this.jobs.get(release.id);
+			if (job && job.signature !== signature(release)) {
+				throw new ReleaseError('MANIFEST', 'Идентификатор загружаемой сборки был изменён. Сервер должен выпустить новую сборку.');
+			}
+			if (!job) {
+				job = {signature: signature(release), observers: new Set(), progress: null, promise: null};
+				this.jobs.set(release.id, job);
+				this.observe(job, progress);
+				job.promise = this.download(release, (item) => this.publish(job, item)).finally(() => {
+					job.observers.clear(); job.progress = null;
+					if (this.jobs.get(release.id) === job) this.jobs.delete(release.id);
+				});
+			} else this.observe(job, progress); // Reconnect gets the latest bytes before its next network chunk.
+			try { return await job.promise; }
+			finally { job.observers.delete(progress); }
 		}
 		async download(release, progress) {
 			if (await this.ready(release)) return release;
@@ -322,9 +351,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* 26ba83d6e5f4a603 and the integrity core are injected by package_under_pwa.py. */
+/* 76c09c06a394c241 and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = '26ba83d6e5f4a603';
+const SHELL_VERSION = '76c09c06a394c241';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
