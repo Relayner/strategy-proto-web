@@ -206,8 +206,19 @@
 				return release;
 			} finally { await this.caches.delete(stagingName); }
 		}
-		async check(progress) {
+		async check(progress, activeReleaseId = null) {
+			if (activeReleaseId !== null && (typeof activeReleaseId !== 'string' || !/^[a-zA-Z0-9_-]{1,96}$/.test(activeReleaseId))) {
+				throw new ReleaseError('MANIFEST', 'Некорректная активная сборка.');
+			}
 			const release = await this.latest();
+			// Only metadata and committed-cache headers are read while an engine is alive.
+			// Remembering the new descriptor above still blocks obsolete offline fallback.
+			if (activeReleaseId !== null) {
+				if (activeReleaseId !== release.id || !(await this.ready(release))) {
+					return {release, offline: false, retireRequired: true};
+				}
+				return {release, offline: false};
+			}
 			await this.ensure(release, progress);
 			return {release, offline: false};
 		}
@@ -249,9 +260,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* 12fa2f05e49a8b0f and the integrity core are injected by package_under_pwa.py. */
+/* 3e2c52b78d964db3 and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = '12fa2f05e49a8b0f';
+const SHELL_VERSION = '3e2c52b78d964db3';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
@@ -285,7 +296,12 @@ self.addEventListener('message', (event) => {
 	if (!event.data || event.data.type !== 'CHECK') return;
 	event.waitUntil((async () => {
 		try {
-			const result = await releases.check((progress) => port.postMessage({type: 'PROGRESS', ...progress}));
+			const result = await releases.check((progress) => port.postMessage({type: 'PROGRESS', ...progress}),
+				event.data.activeReleaseId ?? null);
+			if (result.retireRequired) {
+				port.postMessage({type: 'RETIRE_REQUIRED', ...result});
+				return;
+			}
 			port.postMessage({type: 'READY', ...result});
 			const clients = await self.clients.matchAll({includeUncontrolled: true});
 			const active = clients.map((client) => client.url.match(/\/releases\/([a-zA-Z0-9_-]+)\/game\//)?.[1]).filter(Boolean);

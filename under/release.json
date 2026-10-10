@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "id": "b33-9164049-49742759c5e796b2",
-  "build": "b33-9164049",
-  "created_utc": "2026-10-10T07:22:01+00:00",
-  "base": "releases/b33-9164049-49742759c5e796b2/game/",
+  "id": "b34-15b7079-c1b5e5f3797f275d",
+  "build": "b34-15b7079",
+  "created_utc": "2026-10-10T08:05:08+00:00",
+  "base": "releases/b34-15b7079-c1b5e5f3797f275d/game/",
   "files": [
     {
       "path": "index.144x144.png",
@@ -37,8 +37,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 10428,
-      "sha256": "ea8b86e4f9a7ab486e80a6662e9c96851854c32bfc6d3c042e501add76c3b2cd"
+      "bytes": 11997,
+      "sha256": "40fefe429f5c3e023122d1ba407d009c134581c6bb18ec3342721ecb66281c90"
     },
     {
       "path": "index.icon.png",
@@ -52,8 +52,8 @@
     },
     {
       "path": "index.pck",
-      "bytes": 4177676,
-      "sha256": "fc4d43c5ccc8810ea2b20605c7b9c0503e6fa93b95c1631f0b3d7e3a7cf05e05"
+      "bytes": 4177772,
+      "sha256": "c8bab050f9c786ba070a0106de72a49f5125cc7d2004d46d410185743097f898"
     },
     {
       "path": "index.png",

@@ -12,6 +12,8 @@
   <link rel="icon" href="icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <style>:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#101b22;color:#eee8d9;--gold:#d9b777;--muted:#a0aaa9;--line:#405156}*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 20% 0%,#26444b80,transparent 55%),radial-gradient(ellipse at 100% 85%,#43534450,transparent 50%),#101b22}button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:#18282e;border-radius:12px;min-height:44px}button:hover{border-color:var(--gold);background:#203239}button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}button:disabled{opacity:.45;cursor:wait}[hidden]{display:none!important}#menu{max-width:1080px;margin:auto;padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));display:grid;grid-template-columns:.85fr 1.3fr;gap:54px;min-height:100dvh;align-content:center}header{padding-top:10px}.crest{color:var(--gold);font-size:54px;line-height:1.2;text-shadow:0 0 30px #daa35250;margin-bottom:18px}.eyebrow{text-transform:uppercase;letter-spacing:.22em;color:var(--gold);font-size:12px;margin:0 0 10px}h1{font-family:Georgia,serif;font-size:clamp(34px,5vw,54px);font-weight:400;line-height:1.04;letter-spacing:-.02em;margin:0 0 24px}p{line-height:1.6}.intro{color:var(--muted);font-size:16px}.new-game{width:100%;text-align:left;padding:20px 24px;position:relative;border-color:#9b8559;background:linear-gradient(110deg,#463d2c,#263536);margin-bottom:25px}.new-game span{font-size:24px;font-family:Georgia,serif;display:block}.new-game small{display:block;color:#cfcebb;margin-top:7px}.new-game b{position:absolute;right:22px;top:26px;font-size:26px;color:var(--gold)}h2{font-size:18px;font-weight:500;margin:0 0 6px}.test-note{color:var(--muted);font-size:13px;margin:0 0 16px}.test-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.test-grid button{text-align:left;position:relative;padding:14px 14px 14px 44px;min-height:98px}.test-grid i{position:absolute;left:13px;top:16px;color:var(--gold);font-size:12px;font-style:normal}.test-grid span{display:block;font-size:14px;line-height:1.4}.test-grid small{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:6px}.test-grid button:last-child{grid-column:1 / -1;min-height:76px}footer{grid-column:1 / -1;border-top:1px solid #40515670;padding-top:15px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center;font-size:12px;color:var(--muted)}#install{padding:8px 14px}#game{position:fixed;inset:0;background:#080c10}#game-frame{width:100%;height:100%;border:0}#back{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-size:12px;min-height:32px;padding:4px 11px;background:#142129dd;z-index:2}#gate{position:fixed;inset:0;z-index:10;background:#0d171fef;display:grid;place-items:center;padding:24px}.gate-card{text-align:center;width:min(420px,100%)}.gate-card h2{font-family:Georgia,serif;font-size:26px}.gate-card p{color:var(--muted);font-size:14px}progress{width:100%;height:8px;accent-color:var(--gold)}#progress-text{font-size:12px;min-height:20px}.gate-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:22px}.gate-actions button{padding:11px 16px}dialog{color:inherit;background:#15252d;border:1px solid var(--line);border-radius:16px;max-width:420px;padding:24px}dialog::backdrop{background:#000b}dialog p{font-size:14px;color:var(--muted)}@media(max-width:760px){#menu{display:block;max-width:590px;padding:22px max(18px,env(safe-area-inset-right)) 22px max(18px,env(safe-area-inset-left))}header{padding:0;margin-bottom:24px}.crest{font-size:30px;margin-bottom:10px}h1{font-size:36px;margin-bottom:12px}.intro{margin:0;font-size:14px}.new-game{margin-bottom:22px;padding:16px 20px}.new-game span{font-size:22px}footer{margin-top:22px}.test-grid button{min-height:96px;padding-left:39px}}@media(max-height:520px) and (min-width:761px){#menu{gap:25px;align-content:start;padding-top:22px}.test-grid button{min-height:84px}.new-game{margin-bottom:18px;padding:14px 20px}.crest{font-size:38px;margin-bottom:12px}h1{font-size:40px}.intro{font-size:14px}}
+
+#diagnostics{padding:7px 12px;font-size:12px}#diagnostics-dialog{width:min(620px,calc(100% - 32px));max-width:620px}#diagnostics-report{display:block;width:100%;height:min(38dvh,280px);font:12px/1.5 ui-monospace,monospace;color:#e0e0d8;background:#0c171c;border:1px solid var(--line);padding:10px;resize:vertical;user-select:text;-webkit-user-select:text}
 </style>
 </head>
 <body>
@@ -36,13 +38,83 @@
         <button data-scene="under_test5" disabled><i>05</i><span>Развитая база и лечение</span><small>Экономика и восстановление в логове</small></button>
       </div>
     </section>
-    <footer><span id="build">Проверка сборки…</span><button id="install" hidden>Установить приложение</button><span id="install-tip">На iPhone: «Поделиться» → «На экран Домой»</span></footer>
+    <footer><span id="build">Проверка сборки…</span><button id="diagnostics">Отчёт о запуске</button><button id="install" hidden>Установить приложение</button><span id="install-tip">На iPhone: «Поделиться» → «На экран Домой»</span></footer>
   </main>
   <div id="game" hidden><iframe id="game-frame" title="Подземелье" allow="autoplay; fullscreen; gamepad" allowfullscreen></iframe><button id="back" aria-label="Вернуться в меню">‹ Меню</button></div>
   <section id="gate" role="status" aria-live="polite">
     <div class="gate-card"><div class="crest" aria-hidden="true">◆</div><h2 id="gate-title">Проверяем обновления</h2><p id="gate-message">Для первого запуска нужна сеть.</p><progress id="progress" max="1"></progress><p id="progress-text"></p><div class="gate-actions"><button id="retry" hidden>Повторить проверку</button><button id="offline" hidden>Играть в загруженную версию</button></div></div>
   </section>
   <dialog id="leave-dialog"><h2>Вернуться в меню?</h2><p>Текущая партия завершится. Сохраните её в игровом меню, если хотите продолжить позже.</p><div class="gate-actions"><button id="stay">Продолжить игру</button><button id="leave">В меню</button></div></dialog>
+  <dialog id="diagnostics-dialog"><h2>Отчёт о запуске</h2><p>После сбоя здесь сохраняются сборка, этап загрузки и ошибки запуска. Отчёт хранится только на этом устройстве.</p><textarea id="diagnostics-report" aria-label="Отчёт о запуске" readonly spellcheck="false"></textarea><div class="gate-actions"><button id="diagnostics-close">Закрыть</button></div></dialog>
+  <script>/* A bounded device-local launch receipt. It sends no reports over the network. */
+(function () {
+  'use strict';
+  const key = 'under-pwa-launch-v1:' + new URL('./', document.baseURI).pathname;
+  const phases = new Set(['engine-loading','engine-ready','start-failed','runtime-error','webgl-lost']);
+  let saved = {current:null, previous:[]};
+  function boundedRecord(value) {
+    if (!value || typeof value !== 'object' || typeof value.release !== 'string'
+      || !/^[a-zA-Z0-9_-]{1,96}$/.test(value.release) || typeof value.scene !== 'string'
+      || !/^under_(demo|test[1-5])$/.test(value.scene)) return null;
+    const number = (v) => Number.isFinite(v) && v >= 0 && v <= 100000 ? v : 0;
+    const record = {build:String(value.build || '').slice(0,80), release:value.release, scene:value.scene,
+      phase:phases.has(value.phase) || ['frame-loading','exited','exit-deadline'].includes(value.phase) ? value.phase : 'unknown',
+      started:String(value.started || '').slice(0,32), updated:String(value.updated || '').slice(0,32),
+      browser:String(value.browser || '').slice(0,200), standalone:!!value.standalone,
+      viewport:{width:number(value.viewport?.width),height:number(value.viewport?.height),dpr:number(value.viewport?.dpr)},
+      errors:Array.isArray(value.errors) ? value.errors.filter((v)=>typeof v === 'string').slice(0,8).map((v)=>v.slice(0,240)) : []};
+    if (value.canvas) record.canvas = {width:number(value.canvas.width), height:number(value.canvas.height)};
+    return record;
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw && raw.length < 12000) {
+      const value = JSON.parse(raw);
+      if (value && Array.isArray(value.previous)) saved = {current:boundedRecord(value.current),
+        previous:value.previous.map(boundedRecord).filter(Boolean).slice(0,2)};
+    }
+  } catch (_) {} // Persistence is optional and must never block play.
+  function persist() { try { localStorage.setItem(key, JSON.stringify(saved)); } catch (_) {} }
+  function update(phase, data = {}) {
+    if (!saved.current) return;
+    const record = saved.current;
+    record.phase = phase;
+    record.updated = new Date().toISOString();
+    if (data.canvas && Number.isFinite(data.canvas.width) && Number.isFinite(data.canvas.height)) {
+      record.canvas = {width:data.canvas.width, height:data.canvas.height};
+    }
+    if (typeof data.error === 'string' && record.errors.length < 8) record.errors.push(data.error.slice(0,240));
+    persist();
+  }
+  window.ugUnderDiagnostics = {
+    begin(release, scene) {
+      if (saved.current) saved.previous = [saved.current, ...saved.previous].slice(0,2);
+      saved.current = {build:release.build, release:release.id, scene, phase:'frame-loading',
+        started:new Date().toISOString(), browser:String(navigator.userAgent || '').slice(0,200),
+        standalone:!!navigator.standalone || matchMedia('(display-mode: standalone)').matches,
+        viewport:{width:window.innerWidth, height:window.innerHeight, dpr:window.devicePixelRatio || 1}, errors:[]};
+      persist();
+    },
+    end(reason) { update(reason === 'onExit' ? 'exited' : 'exit-deadline'); },
+  };
+  window.addEventListener('message', (event) => {
+    const frame = document.getElementById('game-frame');
+    const data = event.data;
+    if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin
+      || !data || data.type !== 'UNDER_PWA_STATE' || !phases.has(data.phase)) return;
+    // Ignore messages from a prior release after the owning frame has navigated.
+    if (!saved.current || new URL(frame.src, document.baseURI).searchParams.get('scene') !== saved.current.scene) return;
+    update(data.phase, data);
+  });
+  const button = document.getElementById('diagnostics');
+  const dialog = document.getElementById('diagnostics-dialog');
+  button.addEventListener('click', () => {
+    document.getElementById('diagnostics-report').value = JSON.stringify(saved, null, 2);
+    dialog.showModal();
+  });
+  document.getElementById('diagnostics-close').addEventListener('click', () => dialog.close());
+}());
+</script>
   <script>(function(){
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -59,14 +131,14 @@ async function ready(release, offline=false){
   offlineAcceptedId=offline?release.id:null;
   $('gate').hidden=true; sceneButtons.forEach((b)=>b.disabled=false);
 }
-function rpc(type, progress){
+function rpc(type, progress, payload={}){
   return new Promise((resolve,reject)=>{
     const channel=new MessageChannel();
     const timer=setTimeout(()=>{channel.port1.close();reject(new Error('Проверка заняла слишком долго. Повторите попытку.'));},type==='PING'?10000:900000);
     channel.port1.onmessage=(event)=>{const data=event.data;if(data.type==='PROGRESS'){if(progress)progress(data);return;}clearTimeout(timer);channel.port1.close();resolve(data);};
     worker=navigator.serviceWorker.controller || worker;
     if(!worker){clearTimeout(timer);channel.port1.close();channel.port2.close();reject(new Error('Приложение ещё обновляется. Повторите проверку.'));return;}
-    worker.postMessage({type},[channel.port2]);
+    worker.postMessage({...payload,type},[channel.port2]);
   });
 }
 function waitForActivation(candidate){
@@ -90,7 +162,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=12fa2f05e49a8b0f',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=3e2c52b78d964db3',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
@@ -104,11 +176,19 @@ async function check(){
   if(busy)return;busy=true;offlineCandidate=null;offlineAcceptedId=null;gate('Проверяем обновления','Проверим сборку перед запуском игры.');
   try{
     await connect();
-    const result=await rpc('CHECK',(data)=>{
+    const progress=(data)=>{
       $('gate-title').textContent='Загружаем обновление'; $('gate-message').textContent='Игра откроется, когда сборка будет загружена и проверена целиком.';
       $('progress').max=data.total||1; $('progress').value=data.loaded;
       $('progress-text').textContent=`${(data.loaded/1048576).toFixed(1)} / ${(data.total/1048576).toFixed(1)} МБ`;
-    });
+    };
+    // An active engine must exit before large update bodies are read, hashed or copied.
+    const payload=inGame && current?{activeReleaseId:current.id}:{};
+    let result=await rpc('CHECK',progress,payload);
+    if(result.type==='RETIRE_REQUIRED'){
+      await leaveGame();
+      gate('Проверяем обновления','Подготавливаем новую сборку.');
+      result=await rpc('CHECK',progress);
+    }
     if(result.type==='READY')await ready(result.release);
     else{
       offlineCandidate=result.offline || null; $('gate-title').textContent=offlineCandidate?'Нет соединения':'Обновление не завершено';
@@ -127,6 +207,7 @@ function retireFrame(frame){
       if(finished)return;finished=true;clearTimeout(timer);channel.port1.close();
       frame.remove();
       console.info('[under-pwa] game retired',fallback?'deadline':'onExit');
+      try{if(window.ugUnderDiagnostics)window.ugUnderDiagnostics.end(fallback?'deadline':'onExit');}catch(_){}
       resolve();
     };
     const timer=setTimeout(()=>finish(true),3000);
@@ -154,7 +235,9 @@ sceneButtons.forEach((button)=>button.addEventListener('click',async()=>{
   // Each game start checks the advertised release again, including a menu left open across a deployment.
   if(offlineAcceptedId!==current.id)await check();if(!$('gate').hidden || !current)return;
   const url=new URL(current.base+'index.html',document.baseURI);url.search=new URLSearchParams({scene,auto:'0'}).toString();
-  const frame=$('game-frame') || createGameFrame();frame.src=url.href;
+  const frame=$('game-frame') || createGameFrame();
+  try{if(window.ugUnderDiagnostics)window.ugUnderDiagnostics.begin(current,scene);}catch(_){}
+  frame.src=url.href;
   $('menu').hidden=true; $('game').hidden=false; inGame=true;
 }));
 $('retry').addEventListener('click',check);
