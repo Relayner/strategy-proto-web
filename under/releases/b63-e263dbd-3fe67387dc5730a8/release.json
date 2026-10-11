@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "id": "b63-e263dbd-3fe67387dc5730a8",
+  "build": "b63-e263dbd",
+  "created_utc": "2026-10-11T14:28:10+00:00",
+  "base": "releases/b63-e263dbd-3fe67387dc5730a8/game/",
+  "files": [
+    {
+      "path": "index.144x144.png",
+      "bytes": 2410,
+      "sha256": "98d38a4a70e9e0aab39ccd5bfd8e5dd1054358d2c3e6bba3773212af447e1067"
+    },
+    {
+      "path": "index.180x180.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.512x512.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.apple-touch-icon.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.audio.position.worklet.js",
+      "bytes": 2973,
+      "sha256": "be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8"
+    },
+    {
+      "path": "index.audio.worklet.js",
+      "bytes": 7298,
+      "sha256": "5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3"
+    },
+    {
+      "path": "index.html",
+      "bytes": 11997,
+      "sha256": "562011f862e2482860bd775b7efc4306e74d2bf16453376f5b336df4652c118d"
+    },
+    {
+      "path": "index.icon.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.js",
+      "bytes": 315759,
+      "sha256": "e3f56ee40e6f84371053db06692cfac15e2c8659547b11c6b2dfa1996dabd981"
+    },
+    {
+      "path": "index.pck",
+      "bytes": 5846072,
+      "sha256": "4541c1db5ca245bcc541a2cbcfe88eb2c9058dcc591f99bb7f89100cc520abf5"
+    },
+    {
+      "path": "index.png",
+      "bytes": 21443,
+      "sha256": "3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e"
+    },
+    {
+      "path": "index.wasm",
+      "bytes": 37700666,
+      "sha256": "26b61ce95247012ab3dca3ff51e96d1cdbff44ee91a8c20a83e150afca83f1b6"
+    }
+  ],
+  "notes": {
+    "title": "Факелы построенных залов",
+    "changes": [
+      "У факела появились металлическое крепление, деревянная рукоять, открытая корзина и пламя. Один 3D-объект используется сверху и от первого лица.",
+      "В свежей игре факелы освещают построенные комнаты. Присвоенный голый тоннель и незавершённая комната не получают их автоматически.",
+      "Мелкая версия в меню вынесена в отдельный нижний угол: названия тестов можно читать и прокручивать без перекрытия."
+    ],
+    "check": "Свежая Тестовая игра 2: осмотрите факел у стены казны сверху и при управлении Келли. Сравните зал с голым тоннелем. В меню прокрутите до теста 6 и проверьте подпись версии."
+  }
+}

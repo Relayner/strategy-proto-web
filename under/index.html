@@ -17,7 +17,9 @@
 
 .release-notes{grid-column:1 / -1;padding:18px 22px;border:1px solid #40515680;border-radius:12px;background:#13252b90}.release-notes .eyebrow{margin-bottom:9px}.release-notes h2{color:#eee8d9}.release-notes ul{margin:12px 0;padding-left:20px;color:#c7ceca;font-size:14px;line-height:1.65}.release-notes li+li{margin-top:3px}#notes-check{font-size:13px;color:var(--gold);margin:12px 0 0}@media(max-width:760px){.release-notes{margin-top:20px;padding:16px}.release-notes ul{font-size:13px}}
 
-#build{position:fixed;right:max(8px,env(safe-area-inset-right));bottom:max(5px,env(safe-area-inset-bottom));z-index:3;font-size:10px;line-height:1.2;color:#aab5b9;background:#101b22b8;padding:3px 5px;border-radius:3px;pointer-events:none}
+#menu{height:calc(100dvh - 26px - env(safe-area-inset-bottom));min-height:0;overflow-y:auto}
+#menu::after{content:"";position:fixed;inset:auto 0 0;height:calc(26px + env(safe-area-inset-bottom));background:#101b22;border-top:1px solid #40515670;pointer-events:none;z-index:2}
+#build{position:fixed;right:max(8px,env(safe-area-inset-right));bottom:max(5px,env(safe-area-inset-bottom));z-index:3;font-size:10px;line-height:1.2;color:#aab5b9;background:#101b22;padding:3px 5px;border-radius:3px;pointer-events:none}
 </style>
 </head>
 <body>
@@ -178,7 +180,7 @@
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8','under_test9']);
-const SHELL_VERSION = 'b81622d13b4799ec';
+const SHELL_VERSION = 'e71f672e9d5f1286';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let hiddenAt = 0;
 let retiring = null;
@@ -267,7 +269,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=b81622d13b4799ec',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=e71f672e9d5f1286',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
