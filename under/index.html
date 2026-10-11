@@ -41,6 +41,7 @@
         <button data-scene="under_test6" disabled><i>06</i><span>Пополнение и две атаки</span><small>Короткий цикл: новый житель → 1 враг → житель → 2 врага</small></button>
         <button data-scene="under_test7" disabled><i>07</i><span>Третья смешанная атака</span><small>Три атаки: 1 → 2 → два краба и дальний боец</small></button>
         <button data-scene="under_test8" disabled><i>08</i><span>Пища, отдых и развитие</span><small>Живые нужды краба и оксалота, расходы на комнаты и тренировку</small></button>
+        <button data-scene="under_test9" disabled><i>09</i><span>Восстановление стража</span><small>Бесплатный отдых и конечный заказ ускоренного восстановления</small></button>
       </div>
     </section>
     <section id="release-notes" class="release-notes" aria-labelledby="notes-title" hidden><p class="eyebrow">Что нового <span id="notes-build"></span></p><h2 id="notes-title"></h2><ul id="notes-changes"></ul><p id="notes-check"></p></section>
@@ -74,7 +75,7 @@
   function boundedRecord(value) {
     if (!value || typeof value !== 'object' || typeof value.release !== 'string'
       || !/^[a-zA-Z0-9_-]{1,96}$/.test(value.release) || typeof value.scene !== 'string'
-      || !/^under_(demo|test[1-5])$/.test(value.scene)) return null;
+      || !/^under_(demo|test[1-9])$/.test(value.scene)) return null;
     const number = (v) => Number.isFinite(v) && v >= 0 && v <= 100000 ? v : 0;
     const record = {build:String(value.build || '').slice(0,80), release:value.release, scene:value.scene,
       phase:phases.has(value.phase) || ['frame-loading','exited','exit-deadline'].includes(value.phase) ? value.phase : 'unknown',
@@ -174,8 +175,8 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
-const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8']);
-const SHELL_VERSION = 'dafcbb9329a984c2';
+const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8','under_test9']);
+const SHELL_VERSION = 'dca19eceefe96d91';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let hiddenAt = 0;
 let retiring = null;
@@ -264,7 +265,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=dafcbb9329a984c2',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=dca19eceefe96d91',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
