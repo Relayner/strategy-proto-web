@@ -351,9 +351,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* b81622d13b4799ec and the integrity core are injected by package_under_pwa.py. */
+/* dafcbb9329a984c2 and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = 'b81622d13b4799ec';
+const SHELL_VERSION = 'dafcbb9329a984c2';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
