@@ -180,9 +180,8 @@
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8','under_test9']);
-const SHELL_VERSION = 'e71f672e9d5f1286';
+const SHELL_VERSION = '17011f842fa4a86e';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
-let hiddenAt = 0;
 let retiring = null;
 function updateDiagnostic(phase, data={}){try{window.ugUnderDiagnostics?.updateState?.(phase,data);}catch(_){} }
 function gate(title, message){ $('gate').hidden=false; $('gate-title').textContent=title; $('gate-message').textContent=message; $('retry').hidden=true; $('offline').hidden=true; $('progress').hidden=false; $('progress').removeAttribute('value'); $('progress-text').textContent=''; sceneButtons.forEach((b)=>b.disabled=true); }
@@ -269,7 +268,7 @@ function waitForController(expected){
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=e71f672e9d5f1286',{scope:'./',updateViaCache:'none'});}
+  try{registration=await navigator.serviceWorker.register('service-worker.js?v=17011f842fa4a86e',{scope:'./',updateViaCache:'none'});}
   catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
   try{await registration.update();}catch(error){if(!registration.active)throw error;}
   const candidate=registration.installing || registration.waiting;
@@ -285,7 +284,7 @@ async function check(){
   try{window.ugUnderDiagnostics?.beginUpdate?.(SHELL_VERSION);}catch(_){}
   try{
     // leaveGame clears inGame while its Engine still waits for onExit/deadline.
-    // Hold busy before waiting so foreground/retry cannot connect or CHECK early.
+    // Hold busy before waiting so an explicit retry cannot connect or CHECK early.
     if(retiring)await retiring;
     await connect();
     const progress=(data)=>{
@@ -363,13 +362,18 @@ $('retry').addEventListener('click',check);
 $('offline').addEventListener('click',async()=>{if(offlineCandidate)await ready(offlineCandidate,true);});
 $('back').addEventListener('click',()=>$('leave-dialog').showModal());
 $('stay').addEventListener('click',()=>$('leave-dialog').close());
-$('leave').addEventListener('click',async()=>{$('leave-dialog').close();await leaveGame();await check();});
+$('leave').addEventListener('click',async()=>{
+  $('leave-dialog').close();await leaveGame();
+  // Returning to the menu retains the verified release. A deliberate next
+  // game entry checks it again; do not turn exit or resume into an update check.
+  if(!busy && current)await ready(current,offlineAcceptedId===current.id);
+});
 window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();installEvent=event;$('install').hidden=false;$('install-tip').hidden=true;});
 $('install').addEventListener('click',async()=>{if(!installEvent)return;await installEvent.prompt();await installEvent.userChoice;installEvent=null;$('install').hidden=true;});
 window.addEventListener('appinstalled',()=>{$('install').hidden=true;$('install-tip').hidden=true;});
 if(matchMedia('(display-mode: standalone)').matches || navigator.standalone)$('install-tip').hidden=true;
-document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt){hiddenAt=0;check();}});
-window.addEventListener('pageshow',(event)=>{if(event.persisted)check();});
+// Check once for this new document. Unlock, focus, BFCache restoration and
+// returning from the background keep the current game and verified release.
 check();
 })();
 </script>
