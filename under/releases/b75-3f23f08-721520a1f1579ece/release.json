@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "id": "b75-3f23f08-721520a1f1579ece",
+  "build": "b75-3f23f08",
+  "created_utc": "2026-10-14T22:00:38+00:00",
+  "base": "releases/b75-3f23f08-721520a1f1579ece/game/",
+  "files": [
+    {
+      "path": "index.144x144.png",
+      "bytes": 2410,
+      "sha256": "98d38a4a70e9e0aab39ccd5bfd8e5dd1054358d2c3e6bba3773212af447e1067"
+    },
+    {
+      "path": "index.180x180.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.512x512.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.apple-touch-icon.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.audio.position.worklet.js",
+      "bytes": 2973,
+      "sha256": "be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8"
+    },
+    {
+      "path": "index.audio.worklet.js",
+      "bytes": 7298,
+      "sha256": "5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3"
+    },
+    {
+      "path": "index.html",
+      "bytes": 11998,
+      "sha256": "801cf346192c66da0867bddbfb886791981727114c5e8128f85241229bb7518f"
+    },
+    {
+      "path": "index.icon.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.js",
+      "bytes": 315759,
+      "sha256": "e3f56ee40e6f84371053db06692cfac15e2c8659547b11c6b2dfa1996dabd981"
+    },
+    {
+      "path": "index.pck",
+      "bytes": 83378536,
+      "sha256": "19bc85acafc02cc9d94ec51e7c4a509296da52222b6796546e3df520933ed4d9"
+    },
+    {
+      "path": "index.png",
+      "bytes": 21443,
+      "sha256": "3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e"
+    },
+    {
+      "path": "index.wasm",
+      "bytes": 37700666,
+      "sha256": "26b61ce95247012ab3dca3ff51e96d1cdbff44ee91a8c20a83e150afca83f1b6"
+    }
+  ],
+  "notes": {
+    "title": "Первая миссия и новые3D-персонажи",
+    "changes": [
+      "Первая миссия: понятные цели, оба маршрута к гроту, совместная копка, бой и забота о существах.",
+      "Келли у Сердца со старта: новая3D-модель, синяя кристаллическая правая рука и кирка, общий вид сверху и от первого лица.",
+      "Собственные3D-трещинники: ходьба, копка, удары и переноска с исправленными кистями.",
+      "В тесной группе у стены рабочие различаются по номерам карточек; метки пропускают ввод и скрываются от первого лица."
+    ],
+    "check": "Начните новую игру или Тест1. Для быстрого показа персонажей — Тест2; вселитесь в Келли и проверьте совместную копку."
+  }
+}
