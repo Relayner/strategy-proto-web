@@ -351,14 +351,95 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* 072716b3633b0a20 and the integrity core are injected by package_under_pwa.py. */
+/* ef2ad843039e589b and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = '072716b3633b0a20';
+const SHELL_VERSION = 'ef2ad843039e589b';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
 const SHELL_FILES = ['index.html', 'index.manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 const rootUrl = new URL('index.html', SCOPE).href;
+const SHELL_TIMEOUT_MS = 10000;
+const SHELL_MAX_BYTES = 16 * 1024 * 1024;
+let shellNavigation = 0;
+let shellWrites = Promise.resolve();
+
+async function navigationShell() {
+	const generation = ++shellNavigation;
+	const controller = new AbortController();
+	const chunks = [];
+	let closed = false, reader, timer, fallback, complete;
+	const cancel = () => {
+		controller.abort();
+		if (reader) reader.cancel().catch(() => {});
+	};
+	const deadline = new Promise((_, reject) => {
+		timer = setTimeout(() => {
+			closed = true; cancel(); reject(new Error('App shell timed out'));
+		}, SHELL_TIMEOUT_MS);
+	});
+	// Read the fallback in parallel; an unavailable CacheStorage must not extend
+	// the navigation deadline either. Cache.match does not consume its body.
+	// Keep this handle: reopening after a newer worker deletes this shell cache
+	// would recreate the retired cache's name in CacheStorage.
+	const shellCache = caches.open(SHELL_CACHE);
+	const cached = shellCache.then((cache) => cache.match(rootUrl))
+		.then((response) => { fallback = response; return response; }).catch(() => null);
+	const request = (async () => {
+		const response = await fetch(new URL('index.html?check=' + Date.now(), SCOPE).href,
+			{cache: 'no-store', signal: controller.signal});
+		if (closed || !response.ok) {
+			if (response.body) response.body.cancel().catch(() => {});
+			throw new Error('App unavailable');
+		}
+		// Headers alone do not make a usable shell. Bound the decoded body before
+		// handing it to Cache.put, so a stalled tee cannot hold navigation open.
+		let bytes = 0;
+		if (response.body) {
+			reader = response.body.getReader();
+			while (true) {
+				const {done, value} = await reader.read();
+				if (closed) throw new Error('App shell timed out');
+				if (done) break;
+				bytes += value.byteLength;
+				if (bytes > SHELL_MAX_BYTES) throw new Error('App shell too large');
+				chunks.push(value);
+			}
+		}
+		const headers = new Headers(response.headers);
+		headers.delete('Content-Encoding');
+		headers.delete('Transfer-Encoding');
+		headers.set('Content-Length', String(bytes));
+		complete = new Response(new Blob(chunks), {status: response.status, statusText: response.statusText, headers});
+		chunks.length = 0;
+		// Cache.put cannot be aborted. Serialize writes so an expired put cannot
+		// finish after a newer write; skip superseded requests before committing.
+		const write = shellWrites.then(async () => {
+			if (closed || generation !== shellNavigation) return;
+			const cache = await shellCache;
+			if (!closed && generation === shellNavigation) await cache.put(rootUrl, complete.clone());
+		});
+		shellWrites = write.catch(() => {});
+		await write;
+		if (closed) throw new Error('App shell timed out');
+		return complete;
+	})();
+	try {
+		return await Promise.race([request, deadline]);
+	} catch (_) {
+		const unavailable = () => new Response('Для запуска нужна сеть. Проверьте соединение и откройте приложение снова.', {status: 503});
+		if (closed) return fallback || unavailable();
+		try {
+			return await Promise.race([cached, deadline]) || unavailable();
+		} catch (_) {
+			return fallback || unavailable();
+		}
+	} finally {
+		closed = true; clearTimeout(timer); cancel();
+		chunks.length = 0; // Also release partial bodies when a reader ignores cancel.
+		complete = null; // Expired queued writes must not retain another full shell.
+	}
+}
 
 self.addEventListener('install', (event) => {
 	event.waitUntil((async () => {
@@ -420,16 +501,7 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 	if (relative === '' || relative === 'index.html') {
-		event.respondWith((async () => {
-			try {
-				const response = await fetch(new URL('index.html?check=' + Date.now(), SCOPE).href, {cache: 'no-store'});
-				if (!response.ok) throw new Error('App unavailable');
-				await (await caches.open(SHELL_CACHE)).put(rootUrl, response.clone());
-				return response;
-			} catch (_) {
-				return await (await caches.open(SHELL_CACHE)).match(rootUrl) || new Response('Для первого запуска нужна сеть.', {status: 503});
-			}
-		})());
+		event.respondWith(navigationShell());
 		return;
 	}
 	if (SHELL_FILES.includes(relative)) {

@@ -201,7 +201,7 @@ button:focus-visible{outline:2px solid #b0eee9;outline-offset:2px}
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8','under_test9']);
-const SHELL_VERSION = '072716b3633b0a20';
+const SHELL_VERSION = 'ef2ad843039e589b';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let retiring = null;
 function updateDiagnostic(phase, data={}){try{window.ugUnderDiagnostics?.updateState?.(phase,data);}catch(_){} }
@@ -229,7 +229,7 @@ async function ready(release, offline=false){
   offlineAcceptedId=offline?release.id:null;
   $('gate').hidden=true; sceneButtons.forEach((b)=>b.disabled=false);
 }
-function rpc(type, progress, payload={}){
+function rpc(type, progress, payload={}, connection=null){
   return new Promise((resolve,reject)=>{
     const channel=new MessageChannel();
     let timer,hardTimer,idleDue,finished=false,lastLoaded=-1,lastFile=null,wasHidden=document.hidden;
@@ -262,7 +262,8 @@ function rpc(type, progress, payload={}){
       }
       finish(null,data);
     };
-    worker=navigator.serviceWorker.controller || worker;
+    try{worker=connection?connectionWorker(connection):(navigator.serviceWorker.controller || worker);}
+    catch(error){channel.port2.close();finish(error);return;}
     if(!worker){channel.port2.close();finish(new Error('Приложение ещё обновляется. Повторите проверку.'));return;}
     try{worker.postMessage({...payload,type},[channel.port2]);}
     catch(error){channel.port2.close();finish(error);}
@@ -286,19 +287,63 @@ function waitForController(expected){
     navigator.serviceWorker.addEventListener('controllerchange',changed);changed();
   });
 }
+// Bound browser registration promises themselves. Timing out a whole async
+// connect job would leave its continuation alive; each leaf settles only once.
+function connectStep(operation){
+  return new Promise((resolve,reject)=>{
+    let finished=false;
+    const finish=(error,value)=>{if(finished)return;finished=true;clearTimeout(timer);if(error)reject(error);else resolve(value);};
+    const timer=setTimeout(()=>{const error=new Error('Подключение к приложению заняло слишком долго. Повторите попытку.');error.code='CONNECT_TIMEOUT';finish(error);},15000);
+    Promise.resolve().then(operation).then((value)=>finish(null,value),(error)=>finish(error));
+  });
+}
+function connectionWorker(connection){
+  const target=connection.target,registration=connection.registration;
+  const pending=registration && (registration.installing || registration.waiting);
+  if(!target || navigator.serviceWorker.controller!==target ||
+    (pending && (pending!==target || pending.state!=='activated')) ||
+    (registration && registration.active && registration.active!==target) ||
+    (connection.candidate && connection.candidate!==target)){
+    throw new Error('Приложение ещё обновляется. Повторите проверку.');
+  }
+  return target;
+}
 async function connect(){
   if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
   let registration;
-  try{registration=await navigator.serviceWorker.register('service-worker.js?v=072716b3633b0a20',{scope:'./',updateViaCache:'none'});}
-  catch(error){registration=await navigator.serviceWorker.getRegistration('./');if(!registration)throw error;}
-  try{await registration.update();}catch(error){if(!registration.active)throw error;}
+  const verify=async(candidate=null)=>{
+    const connection={target:navigator.serviceWorker.controller,registration,candidate};
+    connectionWorker(connection);
+    const pong=await rpc('PING',null,{},connection);
+    if(pong.protocol!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
+    // Installation or a controller swap may have happened during PING. Never
+    // let the old worker's protocol reply authorize CHECK through another one.
+    connectionWorker(connection);
+    updateDiagnostic('update-checking',{workerShell:pong.workerShell,protocol:pong.protocol});
+    return connection;
+  };
+  const existing=async(error,candidate=null)=>{
+    // A usable old controller still owns its verified release cache. CHECK,
+    // not this fallback, decides whether explicit offline play is allowed.
+    try{connectionWorker({target:navigator.serviceWorker.controller,registration,candidate});}
+    catch(_){throw error;}
+    return verify(candidate);
+  };
+  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=ef2ad843039e589b',{scope:'./',updateViaCache:'none'}));}
+  catch(error){
+    try{registration=await connectStep(()=>navigator.serviceWorker.getRegistration('./'));}
+    catch(lookupError){return existing(lookupError);}
+    if(!registration || error.code==='CONNECT_TIMEOUT')return existing(error);
+  }
+  try{await connectStep(()=>registration.update());}
+  catch(error){if(error.code==='CONNECT_TIMEOUT' || !registration.active)return existing(error);}
   const candidate=registration.installing || registration.waiting;
   if(candidate)await waitForActivation(candidate);
-  const active=await navigator.serviceWorker.ready;
+  let active;
+  try{active=await connectStep(()=>navigator.serviceWorker.ready);}
+  catch(error){return existing(error,candidate);}
   await waitForController(candidate || registration.active || active.active);
-  worker=navigator.serviceWorker.controller || active.active;
-  const pong=await rpc('PING'); if(pong.protocol!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
-  updateDiagnostic('update-checking',{workerShell:pong.workerShell,protocol:pong.protocol});
+  return verify(candidate);
 }
 async function check(){
   if(busy)return;busy=true;offlineCandidate=null;offlineAcceptedId=null;gate('Проверяем обновления','Проверим сборку перед запуском игры.');
@@ -307,7 +352,7 @@ async function check(){
     // leaveGame clears inGame while its Engine still waits for onExit/deadline.
     // Hold busy before waiting so an explicit retry cannot connect or CHECK early.
     if(retiring)await retiring;
-    await connect();
+    const connection=await connect();
     const progress=(data)=>{
       updateDiagnostic('update-downloading',{file:data.file,loaded:data.loaded,total:data.total,reused:data.reused});
       $('gate-title').textContent='Загружаем обновление'; $('gate-message').textContent='Игра откроется, когда сборка будет загружена и проверена целиком.';
@@ -316,13 +361,13 @@ async function check(){
     };
     // An active engine must exit before large update bodies are read, hashed or copied.
     const payload=inGame && current?{activeReleaseId:current.id}:{};
-    let result=await rpc('CHECK',progress,payload);
+    let result=await rpc('CHECK',progress,payload,connection);
     if(result.type==='RETIRE_REQUIRED'){
       updateDiagnostic('update-retiring',{release:result.release?.id,build:result.release?.build});
       await leaveGame();
       gate('Проверяем обновления','Подготавливаем новую сборку.');
       updateDiagnostic('update-checking');
-      result=await rpc('CHECK',progress);
+      result=await rpc('CHECK',progress,{},connection);
     }
     if(result.type==='READY'){
       updateDiagnostic('update-ready',{release:result.release?.id,build:result.release?.build});
