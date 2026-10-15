@@ -201,7 +201,7 @@ button:focus-visible{outline:2px solid #b0eee9;outline-offset:2px}
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8','under_test9']);
-const SHELL_VERSION = 'ef2ad843039e589b';
+const SHELL_VERSION = 'e7d3026449235023';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let retiring = null;
 function updateDiagnostic(phase, data={}){try{window.ugUnderDiagnostics?.updateState?.(phase,data);}catch(_){} }
@@ -329,7 +329,7 @@ async function connect(){
     catch(_){throw error;}
     return verify(candidate);
   };
-  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=ef2ad843039e589b',{scope:'./',updateViaCache:'none'}));}
+  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=e7d3026449235023',{scope:'./',updateViaCache:'none'}));}
   catch(error){
     try{registration=await connectStep(()=>navigator.serviceWorker.getRegistration('./'));}
     catch(lookupError){return existing(lookupError);}
@@ -416,8 +416,9 @@ function createGameFrame(){
 }
 sceneButtons.forEach((button)=>button.addEventListener('click',async()=>{
   const scene=button.dataset.scene;if(!current || !SCENES.has(scene) || busy || retiring || inGame)return;
-  // Each game start checks the advertised release again, including a menu left open across a deployment.
-  if(offlineAcceptedId!==current.id)await check();if(!$('gate').hidden || !current)return;
+  // Scene starts reuse this document's verified release. A failed explicit
+  // check must still gate play until READY or an accepted offline choice.
+  if(!$('gate').hidden)return;
   const url=new URL(current.base+'index.html',document.baseURI);url.search=new URLSearchParams({scene,auto:'0'}).toString();
   const frame=$('game-frame') || createGameFrame();
   try{if(window.ugUnderDiagnostics)window.ugUnderDiagnostics.begin(current,scene);}catch(_){}
@@ -430,8 +431,8 @@ $('back').addEventListener('click',()=>$('leave-dialog').showModal());
 $('stay').addEventListener('click',()=>$('leave-dialog').close());
 $('leave').addEventListener('click',async()=>{
   $('leave-dialog').close();await leaveGame();
-  // Returning to the menu retains the verified release. A deliberate next
-  // game entry checks it again; do not turn exit or resume into an update check.
+  // Returning to the menu and starting another scene retain the verified
+  // release. Only a new document or explicit retry checks for updates.
   if(!busy && current)await ready(current,offlineAcceptedId===current.id);
 });
 window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();installEvent=event;$('install').hidden=false;$('install-tip').hidden=true;});
