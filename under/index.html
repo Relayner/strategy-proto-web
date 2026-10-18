@@ -17,9 +17,8 @@
 
 .release-notes{grid-column:1 / -1;padding:18px 22px;border:1px solid #40515680;border-radius:12px;background:#13252b90}.release-notes .eyebrow{margin-bottom:9px}.release-notes h2{color:#eee8d9}.release-notes ul{margin:12px 0;padding-left:20px;color:#c7ceca;font-size:14px;line-height:1.65}.release-notes li+li{margin-top:3px}#notes-check{font-size:13px;color:var(--gold);margin:12px 0 0}@media(max-width:760px){.release-notes{margin-top:20px;padding:16px}.release-notes ul{font-size:13px}}
 
-#menu{height:calc(100dvh - 26px - env(safe-area-inset-bottom));min-height:0;overflow-y:auto}
-#menu::after{content:"";position:fixed;inset:auto 0 0;height:calc(26px + env(safe-area-inset-bottom));background:#101b22;border-top:1px solid #40515670;pointer-events:none;z-index:2}
-#build{position:fixed;right:max(8px,env(safe-area-inset-right));bottom:max(5px,env(safe-area-inset-bottom));z-index:3;font-size:10px;line-height:1.2;color:#aab5b9;background:#101b22;padding:3px 5px;border-radius:3px;pointer-events:none}
+#menu{position:relative;height:100dvh;min-height:0;overflow-y:auto;align-content:start;padding-bottom:max(24px,env(safe-area-inset-bottom))}
+#build{position:absolute;right:max(8px,env(safe-area-inset-right));top:max(5px,env(safe-area-inset-top));font-size:10px;line-height:1.2;color:#aab5b9;padding:3px 5px;pointer-events:none}
 
 /* Accepted 13Oct secondary UI skin: identical geometry in normal/down/disabled.
    The four original PNGs are resolved locally by package_under_pwa.py later. */
@@ -38,7 +37,7 @@ button:focus-visible{outline:2px solid #b0eee9;outline-offset:2px}
 .test-grid button{padding-left:55px;min-height:108px;font-size:12px}.test-grid i{left:12px;top:10px;font-size:10px;background:#162128aa;border-radius:3px;padding:2px}
 .test-grid span{font-size:13px}.test-grid small{font-size:11px;color:#aab8b8}
 #back{min-height:44px;padding:4px 14px;border-width:8px}
-#menu::after,#build{background:#10191e}#build{font-size:10px}
+#build{background:transparent;font-size:10px}
 @media(max-width:760px){.choices{padding:14px;border-width:14px}.crest img{width:44px;height:44px}.test-grid button{min-height:118px}.new-game{padding-left:62px}}
 @media(max-height:520px) and (min-width:761px){#menu{align-content:start}.choices{padding:14px;border-width:14px}.test-grid button{min-height:104px}.crest img{width:50px;height:50px}}
 </style>
@@ -201,9 +200,11 @@ button:focus-visible{outline:2px solid #b0eee9;outline-offset:2px}
 const $ = (id) => document.getElementById(id);
 const sceneButtons = [...document.querySelectorAll('[data-scene]')];
 const SCENES = new Set(['under_demo','under_test1','under_test2','under_test3','under_test4','under_test5','under_test6','under_test7','under_test8','under_test9']);
-const SHELL_VERSION = 'e7d3026449235023';
+const SHELL_VERSION = '60e9b849c0483cf1';
 let worker = null, current = null, busy = false, inGame = false, offlineCandidate = null, installEvent = null, offlineAcceptedId = null;
 let retiring = null;
+// An older in-flight worker reply must not replace a later explicit Retry's pin.
+let checkSequence = 0;
 function updateDiagnostic(phase, data={}){try{window.ugUnderDiagnostics?.updateState?.(phase,data);}catch(_){} }
 function gate(title, message){ $('gate').hidden=false; $('gate-title').textContent=title; $('gate-message').textContent=message; $('retry').hidden=true; $('offline').hidden=true; $('progress').hidden=false; $('progress').removeAttribute('value'); $('progress-text').textContent=''; sceneButtons.forEach((b)=>b.disabled=true); }
 function showNotes(release){
@@ -315,7 +316,7 @@ async function connect(){
     const connection={target:navigator.serviceWorker.controller,registration,candidate};
     connectionWorker(connection);
     const pong=await rpc('PING',null,{},connection);
-    if(pong.protocol!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
+    if(pong.protocol!==1 || pong.clientPins!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
     // Installation or a controller swap may have happened during PING. Never
     // let the old worker's protocol reply authorize CHECK through another one.
     connectionWorker(connection);
@@ -329,7 +330,7 @@ async function connect(){
     catch(_){throw error;}
     return verify(candidate);
   };
-  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=e7d3026449235023',{scope:'./',updateViaCache:'none'}));}
+  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=60e9b849c0483cf1',{scope:'./',updateViaCache:'none'}));}
   catch(error){
     try{registration=await connectStep(()=>navigator.serviceWorker.getRegistration('./'));}
     catch(lookupError){return existing(lookupError);}
@@ -347,6 +348,7 @@ async function connect(){
 }
 async function check(){
   if(busy)return;busy=true;offlineCandidate=null;offlineAcceptedId=null;gate('Проверяем обновления','Проверим сборку перед запуском игры.');
+  const sequence=++checkSequence;
   try{window.ugUnderDiagnostics?.beginUpdate?.(SHELL_VERSION);}catch(_){}
   try{
     // leaveGame clears inGame while its Engine still waits for onExit/deadline.
@@ -360,14 +362,14 @@ async function check(){
       $('progress-text').textContent=`${(data.loaded/1048576).toFixed(1)} / ${(data.total/1048576).toFixed(1)} МБ`;
     };
     // An active engine must exit before large update bodies are read, hashed or copied.
-    const payload=inGame && current?{activeReleaseId:current.id}:{};
+    const payload={checkSequence:sequence,...(inGame && current?{activeReleaseId:current.id}:{})};
     let result=await rpc('CHECK',progress,payload,connection);
     if(result.type==='RETIRE_REQUIRED'){
       updateDiagnostic('update-retiring',{release:result.release?.id,build:result.release?.build});
       await leaveGame();
       gate('Проверяем обновления','Подготавливаем новую сборку.');
       updateDiagnostic('update-checking');
-      result=await rpc('CHECK',progress,{},connection);
+      result=await rpc('CHECK',progress,{checkSequence:sequence},connection);
     }
     if(result.type==='READY'){
       updateDiagnostic('update-ready',{release:result.release?.id,build:result.release?.build});

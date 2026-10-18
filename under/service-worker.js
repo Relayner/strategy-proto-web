@@ -33,7 +33,7 @@
 	}
 	class ReleaseCache {
 		constructor({scope, caches, fetch, crypto, now = () => Date.now(), metadataTimeoutMs = 15000,
-			assetTimeoutMs = 900000, assetIdleTimeoutMs = 60000}) {
+			assetTimeoutMs = 900000, assetIdleTimeoutMs = 60000, locks = root.navigator?.locks}) {
 			this.scope = new URL('./', scope).href;
 			this.caches = caches; this.fetch = fetch; this.crypto = crypto; this.now = now;
 			this.metadataTimeoutMs = metadataTimeoutMs; this.assetTimeoutMs = assetTimeoutMs;
@@ -41,6 +41,8 @@
 			this.prefix = `under-pwa-${encodeURIComponent(new URL(this.scope).pathname)}-`;
 			this.marker = new URL('__complete__', this.scope).href;
 			this.stateUrl = new URL('__latest__', this.scope).href;
+			this.clientPinPrefix = new URL('__client_release__/', this.scope).href;
+			this.locks = locks;
 			this.jobs = new Map();
 		}
 		cacheName(release) { return this.prefix + 'release-' + release.id; }
@@ -334,26 +336,86 @@
 			url.search = ''; url.hash = '';
 			return await cache.match(url.href) || new Response('Файл сборки утрачен. Откройте меню и повторите проверку.', {status: 503});
 		}
-		async prune(activeIds = []) {
-			const completed = [];
-			for (const name of await this.caches.keys()) {
-				if (!name.startsWith(this.prefix + 'release-')) continue;
-				const marker = await (await this.caches.open(name)).match(this.marker);
-				if (!marker) continue;
-				try { completed.push({name, release: validateRelease(await marker.json())}); } catch (_) {}
+		pinUrl(clientId) { return this.clientPinPrefix + encodeURIComponent(clientId); }
+		validatePin(value) {
+			if (!value || value.schema !== 1 || typeof value.clientId !== 'string' || !value.clientId.length ||
+				value.clientId.length > 256 || !Number.isSafeInteger(value.checkSequence) || value.checkSequence < 1 ||
+				!/^[a-zA-Z0-9_-]{1,96}$/.test(value.releaseId || '')) {
+				throw new ReleaseError('STORAGE', 'Не удалось сохранить выбранную сборку. Повторите проверку.');
 			}
-			completed.sort((a, b) => (b.release.created_utc || '').localeCompare(a.release.created_utc || ''));
-			const keep = new Set([...activeIds, ...completed.slice(0, 2).map((item) => item.release.id)]);
-			for (const item of completed) if (!keep.has(item.release.id)) await this.caches.delete(item.name);
+			return value;
+		}
+		withPinLock(operation) {
+			return this.locks?.request ? this.locks.request(this.prefix + 'client-pins', {mode: 'exclusive'}, operation) : operation();
+		}
+		async pinClient(clientId, release, checkSequence) {
+			validateRelease(release);
+			if (!Number.isSafeInteger(checkSequence) || checkSequence < 1) {
+				throw new ReleaseError('PIN_PROTOCOL', 'Обновите страницу, чтобы завершить обновление приложения.');
+			}
+			const pin = this.validatePin({schema: 1, clientId, checkSequence, releaseId: release.id});
+			return this.withPinLock(async () => {
+				const state = await this.caches.open(this.prefix + 'state');
+				const url = this.pinUrl(clientId);
+				const previous = await state.match(url);
+				if (previous) {
+					const prior = this.validatePin(await previous.json());
+					if (prior.clientId !== clientId || prior.checkSequence > checkSequence ||
+						(prior.checkSequence === checkSequence && prior.releaseId !== release.id)) {
+						throw new ReleaseError('STALE_CHECK', 'Проверка была заменена новой. Повторите попытку.');
+					}
+				}
+				// A concurrent prune may have won the lock before this not-yet-accepted
+				// release. Never expose READY/offline play for a deleted commit marker.
+				if (!(await this.ready(release))) throw new ReleaseError('STORAGE', 'Сборка больше не загружена. Повторите проверку.');
+				await state.put(url, new Response(JSON.stringify(pin), {headers: {'Content-Type': 'application/json'}}));
+			});
+		}
+		async prune(getLiveClients) {
+			// Without a cross-worker lock, pin writes and deletes cannot be made safe.
+			// Retaining cache bodies is preferable to evicting a live verified menu.
+			if (!this.locks?.request || typeof getLiveClients !== 'function') return false;
+			try { return await this.withPinLock(async () => {
+				// Enumerate inside the same lock as pin writes, not from an earlier snapshot.
+				const {menuClientIds, activeReleaseIds} = await getLiveClients();
+				if (!Array.isArray(menuClientIds) || !Array.isArray(activeReleaseIds) ||
+					menuClientIds.some((id) => typeof id !== 'string' || !id.length) ||
+					activeReleaseIds.some((id) => !/^[a-zA-Z0-9_-]{1,96}$/.test(id))) return false;
+				const live = new Set(menuClientIds), keep = new Set(activeReleaseIds);
+				const state = await this.caches.open(this.prefix + 'state');
+				const closedPins = [], pinned = new Set();
+				for (const request of await state.keys()) {
+					if (!request.url.startsWith(this.clientPinPrefix)) continue;
+					const pin = this.validatePin(await (await state.match(request)).json());
+					if (request.url !== this.pinUrl(pin.clientId)) return false;
+					if (live.has(pin.clientId)) { keep.add(pin.releaseId); pinned.add(pin.clientId); }
+					else closedPins.push(request);
+				}
+				// An old shell or failed pin write may still own an accepted menu. Its
+				// release is unknown, so do not guess which committed cache can be removed.
+				if ([...live].some((id) => !pinned.has(id))) return false;
+				const completed = [];
+				for (const name of await this.caches.keys()) {
+					if (!name.startsWith(this.prefix + 'release-')) continue;
+					const marker = await (await this.caches.open(name)).match(this.marker);
+					if (!marker) continue;
+					completed.push({name, release: validateRelease(await marker.json())});
+				}
+				completed.sort((a, b) => (b.release.created_utc || '').localeCompare(a.release.created_utc || ''));
+				for (const item of completed.slice(0, 2)) keep.add(item.release.id);
+				for (const request of closedPins) await state.delete(request);
+				for (const item of completed) if (!keep.has(item.release.id)) await this.caches.delete(item.name);
+				return true;
+			}); } catch (_) { return false; } // Enumeration/storage failure never authorizes eviction.
 		}
 	}
 	root.UnderPwa = {ReleaseCache, ReleaseError, validateRelease};
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.UnderPwa;
 })(globalThis);
 
-/* e7d3026449235023 and the integrity core are injected by package_under_pwa.py. */
+/* 60e9b849c0483cf1 and the integrity core are injected by package_under_pwa.py. */
 'use strict';
-const SHELL_VERSION = 'e7d3026449235023';
+const SHELL_VERSION = '60e9b849c0483cf1';
 const SCOPE = self.registration.scope;
 const releases = new UnderPwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
@@ -464,7 +526,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
 	const port = event.ports && event.ports[0];
 	if (!port || !event.source || !event.source.url || !event.source.url.startsWith(SCOPE)) return;
-	if (event.data && event.data.type === 'PING') { port.postMessage({type: 'PONG', protocol: 1, workerShell: SHELL_VERSION}); return; }
+	if (event.data && event.data.type === 'PING') { port.postMessage({type: 'PONG', protocol: 1, clientPins: 1, workerShell: SHELL_VERSION}); return; }
 	if (!event.data || event.data.type !== 'CHECK') return;
 	event.waitUntil((async () => {
 		try {
@@ -474,15 +536,27 @@ self.addEventListener('message', (event) => {
 				port.postMessage({type: 'RETIRE_REQUIRED', ...result});
 				return;
 			}
+			await releases.pinClient(event.source.id, result.release, event.data.checkSequence);
 			port.postMessage({type: 'READY', ...result});
-			const clients = await self.clients.matchAll({includeUncontrolled: true});
-			const active = clients.map((client) => client.url.match(/\/releases\/([a-zA-Z0-9_-]+)\/game\//)?.[1]).filter(Boolean);
-			await releases.prune(active);
+			await releases.prune(async () => {
+				const clients = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+				const menuClientIds = [], activeReleaseIds = [];
+				for (const client of clients) {
+					if (!client.url.startsWith(SCOPE)) continue;
+					const path = new URL(client.url).pathname.slice(new URL(SCOPE).pathname.length);
+					const match = path.match(/^releases\/([a-zA-Z0-9_-]+)\/game\//);
+					if (match) activeReleaseIds.push(match[1]);
+					else menuClientIds.push(client.id);
+				}
+				return {menuClientIds, activeReleaseIds};
+			});
 		} catch (error) {
 			let offline = null;
 			if (error.code === 'OFFLINE') {
-				try { offline = await releases.offlineCandidate(); }
-				catch (pending) { error = pending; }
+				try {
+					offline = await releases.offlineCandidate();
+					if (offline) await releases.pinClient(event.source.id, offline, event.data.checkSequence);
+				} catch (pending) { offline = null; error = pending; }
 			}
 			port.postMessage({type: 'ERROR', code: error.code || 'STORAGE', message: error.message, offline});
 		}
