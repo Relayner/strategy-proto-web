@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Стратегия — проверка PR 22",
+  "short_name": "PR 22",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "lang": "ru",
+  "theme_color": "#171c24",
+  "background_color": "#171c24",
+  "description": "Сборка PR 22 надземной игры для проверки владельцем. Постоянная игра — по ссылке …/surface/.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

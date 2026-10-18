@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#171c24">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PR 22">
+  <title>PR 22 · Стратегия — проверка</title>
+  <link rel="manifest" href="index.manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>/* Colors follow the game's own menu (scripts/ui/boot.gd, scripts/ui/ui_theme.gd): background, accent, dim text. */
+:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#171c24;color:#fff;--accent:#ffc21f;--muted:#c7ccd6;--line:#3a4352;--panel:#0f1217e6}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:#222a36;border-radius:10px;min-height:44px;padding:10px 16px;touch-action:manipulation}
+button:hover{border-color:var(--accent)}
+button:active{background:#2c3646}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#171c24;font-weight:600;min-width:150px;font-size:18px}
+button.primary:active{background:#e0a910}
+button.quiet{background:transparent;border-color:transparent;color:var(--muted);font-size:13px;min-height:36px;padding:6px 10px}
+/* The game keeps the layout it had as a plain Godot page: left/right safe areas stay black, as without viewport-fit=cover. */
+#game{position:fixed;top:0;bottom:0;left:env(safe-area-inset-left);right:env(safe-area-inset-right);background:#000}
+#game iframe{display:block;width:100%;height:100%;border:0}
+#gate{position:fixed;inset:0;z-index:10;overflow-y:auto;-webkit-overflow-scrolling:touch;background:radial-gradient(ellipse at 18% 0%,#2a3a3080,transparent 55%),radial-gradient(ellipse at 100% 100%,#3a332080,transparent 50%),#171c24;display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.gate-card{width:min(440px,100%);text-align:center}
+.gate-card.with-notes{width:min(880px,100%);display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:28px;align-items:center}
+.crest{width:72px;height:72px;border-radius:16px;display:block;margin:0 auto 12px;box-shadow:0 6px 24px #0008}
+.eyebrow{text-transform:uppercase;letter-spacing:.18em;color:var(--accent);font-size:11px;margin:0 0 8px}
+h1{font-size:26px;font-weight:600;line-height:1.15;margin:0 0 8px}
+#gate-message{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 12px;min-height:1em}
+progress{width:100%;height:8px;accent-color:var(--accent)}
+#progress-text{font-size:12px;color:var(--muted);min-height:18px;margin:6px 0 0}
+.gate-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+.tip{font-size:12px;color:var(--muted);margin:12px 0 0}
+#build{font-size:11px;color:#8d96a5;margin:10px 0 0;min-height:14px}
+.release-notes{text-align:left;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.release-notes h2{font-size:18px;font-weight:600;margin:0 0 6px}
+.release-notes ul{margin:10px 0;padding-left:20px;color:#e3e6ec;font-size:14px;line-height:1.55}
+.release-notes li+li{margin-top:4px}
+#notes-check{font-size:13px;color:var(--accent);margin:10px 0 0;line-height:1.5}
+#toast{position:fixed;z-index:20;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);max-width:min(560px,calc(100% - 32px));margin:0;padding:8px 14px;border-radius:10px;background:#0f1217ee;border:1px solid var(--line);color:#fff;font-size:13px;text-align:center;pointer-events:none;animation:toast 6s forwards}
+/* A newer build found on return from the background: a compact bar over the running game, never a modal. */
+#update-banner{position:fixed;z-index:25;top:max(6px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;max-width:calc(100% - 32px);padding:4px 4px 4px 14px;border-radius:12px;background:#0f1217f2;border:1px solid var(--accent);font-size:13px;white-space:nowrap;box-shadow:0 6px 24px #0009}
+#update-banner button{min-height:36px;padding:6px 12px;font-size:14px;min-width:0}
+@keyframes toast{0%,80%{opacity:1}100%{opacity:0;visibility:hidden}}
+dialog{color:inherit;background:#1d2430;border:1px solid var(--line);border-radius:14px;width:min(620px,calc(100% - 32px));max-width:620px;padding:20px}
+dialog::backdrop{background:#000b}
+dialog h2{font-size:18px;margin:0 0 6px}
+dialog p{font-size:13px;color:var(--muted);line-height:1.5}
+#diagnostics-report{display:block;width:100%;height:min(38dvh,260px);font:12px/1.5 ui-monospace,monospace;color:#e0e0d8;background:#10151c;border:1px solid var(--line);padding:10px;resize:vertical;user-select:text;-webkit-user-select:text}
+/* Phone landscape (926×428, 926×320): compact header, notes beside the controls. */
+@media (max-height:520px){.crest{width:48px;height:48px;margin-bottom:8px}h1{font-size:21px}.eyebrow{margin-bottom:4px}#gate-message{margin-bottom:8px}.gate-actions{margin-top:10px}.release-notes{padding:12px 16px}.release-notes ul{font-size:13px;line-height:1.45;margin:6px 0}#gate{place-items:start center}.gate-card{margin:auto 0}}
+@media (max-width:640px){.gate-card.with-notes{grid-template-columns:1fr;gap:16px}}
+@media (max-height:360px){.crest{display:none}h1{font-size:19px}.gate-actions{gap:8px}}
+</style>
+</head>
+<body>
+  <div id="game" hidden></div>
+  <section id="gate" role="status" aria-live="polite">
+    <div id="gate-card" class="gate-card">
+      <div class="gate-main">
+        <img class="crest" src="icon-192.png" alt="" aria-hidden="true">
+        <p class="eyebrow">Проверка PR 22 · надземная игра</p>
+        <h1 id="gate-title">Проверяем обновления</h1>
+        <p id="gate-message">Для первого запуска нужна сеть.</p>
+        <progress id="progress" max="1"></progress>
+        <p id="progress-text"></p>
+        <div class="gate-actions">
+          <button id="play" class="primary" hidden>Играть</button>
+          <button id="retry" hidden>Повторить проверку</button>
+          <button id="offline" hidden>Играть в загруженную сборку</button>
+          <button id="install" hidden>Установить приложение</button>
+          <button id="gate-diagnostics" class="quiet">Отчёт о запуске</button>
+        </div>
+        <p id="install-tip" class="tip">На iPhone: «Поделиться» → «На экран „Домой“»</p>
+        <p id="build"></p>
+      </div>
+      <section id="release-notes" class="release-notes" aria-labelledby="notes-title" hidden><p class="eyebrow">Что нового <span id="notes-build"></span></p><h2 id="notes-title"></h2><ul id="notes-changes"></ul><p id="notes-check"></p></section>
+    </div>
+  </section>
+  <p id="toast" role="status" hidden></p>
+  <div id="update-banner" role="status" hidden><span id="update-text"></span><button id="update-reload" class="primary">Обновить</button><button id="update-later" class="quiet">Позже</button></div>
+  <dialog id="diagnostics-dialog"><h2>Отчёт о запуске</h2><p>Здесь сохраняются этап обновления, последний файл и объём загрузки, ошибки и отчёты запуска игры. Отчёт хранится только на этом устройстве.</p><textarea id="diagnostics-report" aria-label="Отчёт о запуске" readonly spellcheck="false"></textarea><div class="gate-actions"><button id="diagnostics-close">Закрыть</button></div></dialog>
+  <script>/* A bounded device-local launch receipt. It sends no reports over the network. */
+(function () {
+  'use strict';
+  const key = 'surface-pwa-launch-v1:' + new URL('./', document.baseURI).pathname;
+  const phases = new Set(['engine-loading','engine-ready','start-failed','runtime-error','webgl-lost']);
+  const updatePhases = new Set(['update-checking','update-downloading','update-retiring','update-ready','update-failed','update-retry','update-available']);
+  let saved = {current:null, previous:[], update:null, previousUpdates:[]};
+  let lastWrite = 0;
+  const label = (v, max = 96) => typeof v === 'string' && /^[a-zA-Z0-9_.-]+$/.test(v) ? v.slice(0,max) : '';
+  const bytes = (v) => Number.isSafeInteger(v) && v >= 0 && v <= 1073741824 ? v : 0;
+  const errorText = (v) => typeof v === 'string' ? v.replace(/\b(?:https?|file):\/\/\S+/gi,'[url]').replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,240) : '';
+  function boundedUpdate(value) {
+    if (!value || typeof value !== 'object' || !updatePhases.has(value.phase)) return null;
+    return {phase:value.phase, shell:label(value.shell), workerShell:label(value.workerShell),
+      protocol:bytes(value.protocol), build:label(value.build,80), release:label(value.release),
+      file:label(value.file,80), loaded:bytes(value.loaded), total:bytes(value.total), reused:bytes(value.reused),
+      started:String(value.started || '').slice(0,32), updated:String(value.updated || '').slice(0,32),
+      error:value.error ? {code:label(value.error.code,32), message:errorText(value.error.message)} : null};
+  }
+  function boundedRecord(value) {
+    if (!value || typeof value !== 'object' || typeof value.release !== 'string'
+      || !/^[a-zA-Z0-9_-]{1,96}$/.test(value.release) || typeof value.scene !== 'string'
+      || value.scene !== 'menu') return null; // The surface app always opens the game's own main menu.
+    const number = (v) => Number.isFinite(v) && v >= 0 && v <= 100000 ? v : 0;
+    const record = {build:String(value.build || '').slice(0,80), release:value.release, scene:value.scene,
+      phase:phases.has(value.phase) || ['frame-loading','exited','exit-deadline'].includes(value.phase) ? value.phase : 'unknown',
+      started:String(value.started || '').slice(0,32), updated:String(value.updated || '').slice(0,32),
+      browser:String(value.browser || '').slice(0,200), standalone:!!value.standalone,
+      viewport:{width:number(value.viewport?.width),height:number(value.viewport?.height),dpr:number(value.viewport?.dpr)},
+      errors:Array.isArray(value.errors) ? value.errors.filter((v)=>typeof v === 'string').slice(0,8).map((v)=>v.slice(0,240)) : []};
+    if (value.canvas) record.canvas = {width:number(value.canvas.width), height:number(value.canvas.height)};
+    return record;
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw && raw.length < 12000) {
+      const value = JSON.parse(raw);
+      if (value && Array.isArray(value.previous)) saved = {current:boundedRecord(value.current),
+        previous:value.previous.map(boundedRecord).filter(Boolean).slice(0,2), update:boundedUpdate(value.update),
+        previousUpdates:Array.isArray(value.previousUpdates) ? value.previousUpdates.map(boundedUpdate).filter(Boolean).slice(0,1) : []};
+    }
+  } catch (_) {} // Persistence is optional and must never block play.
+  function persist(force = true) {
+    // Byte callbacks update memory immediately. Avoid synchronous storage writes
+    // for every tiny chunk; no timer/heartbeat is added, and terminal phases flush.
+    if (!force && Date.now() - lastWrite < 1000) return;
+    lastWrite = Date.now();
+    // Keep the existing local schema/key and engine history, with a strict total
+    // serialized bound even when JSON escaping expands old engine error strings.
+    let raw = JSON.stringify(saved);
+    while (raw.length >= 12000) {
+      if (saved.previousUpdates.length) saved.previousUpdates.pop();
+      else if (saved.previous.length) saved.previous.pop();
+      else if (saved.current?.errors.length) saved.current.errors.pop();
+      else break;
+      raw = JSON.stringify(saved);
+    }
+    try { if (raw.length < 12000) localStorage.setItem(key, raw); } catch (_) {}
+  }
+  function updateReceipt(phase, data = {}) {
+    if (!saved.update || !updatePhases.has(phase)) return;
+    const fields = ['workerShell','protocol','build','release','file','loaded','total','reused','error'];
+    const record = {...saved.update, phase, updated:new Date().toISOString()};
+    for (const field of fields) if (Object.prototype.hasOwnProperty.call(data,field)) record[field] = data[field];
+    const changed = saved.update.phase !== phase || saved.update.file !== record.file;
+    saved.update = boundedUpdate(record);
+    persist(phase !== 'update-downloading' || changed);
+  }
+  function update(phase, data = {}) {
+    if (!saved.current) return;
+    const record = saved.current;
+    record.phase = phase;
+    record.updated = new Date().toISOString();
+    if (data.canvas && Number.isFinite(data.canvas.width) && Number.isFinite(data.canvas.height)) {
+      record.canvas = {width:data.canvas.width, height:data.canvas.height};
+    }
+    if (typeof data.error === 'string' && record.errors.length < 8) record.errors.push(data.error.slice(0,240));
+    persist();
+  }
+  window.sgSurfaceDiagnostics = {
+    begin(release, scene) {
+      if (saved.current) saved.previous = [saved.current, ...saved.previous].slice(0,2);
+      saved.current = {build:release.build, release:release.id, scene, phase:'frame-loading',
+        started:new Date().toISOString(), browser:String(navigator.userAgent || '').slice(0,200),
+        standalone:!!navigator.standalone || matchMedia('(display-mode: standalone)').matches,
+        viewport:{width:window.innerWidth, height:window.innerHeight, dpr:window.devicePixelRatio || 1}, errors:[]};
+      persist();
+    },
+    end(reason) { update(reason === 'onExit' ? 'exited' : 'exit-deadline'); },
+    beginUpdate(shell) {
+      if (saved.update) saved.previousUpdates = [saved.update];
+      const now = new Date().toISOString();
+      saved.update = boundedUpdate({phase:'update-checking',shell,started:now,updated:now});
+      persist();
+    },
+    updateState: updateReceipt,
+  };
+  window.addEventListener('message', (event) => {
+    const frame = document.getElementById('game-frame');
+    const data = event.data;
+    if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin
+      || !data || data.type !== 'SURFACE_PWA_STATE' || !phases.has(data.phase)) return;
+    // Ignore messages from a prior release after the owning frame has navigated.
+    const owner = new URL(frame.src, document.baseURI).pathname.match(/\/releases\/([a-zA-Z0-9_-]+)\/game\//);
+    if (!saved.current || !owner || owner[1] !== saved.current.release) return;
+    update(data.phase, data);
+  });
+  const dialog = document.getElementById('diagnostics-dialog');
+  const report = () => {
+    persist(); // The requested report flushes the latest real in-memory byte count.
+    document.getElementById('diagnostics-report').value = JSON.stringify(saved, null, 2);
+    dialog.showModal();
+  };
+  document.getElementById('gate-diagnostics')?.addEventListener('click', report);
+  document.getElementById('diagnostics-close').addEventListener('click', () => dialog.close());
+}());
+</script>
+  <script>(function(){
+'use strict';
+// Stable /surface/ shell: check for an update on every new document (cold app start),
+// download it completely with sha256 verification, then open the game's own main menu
+// (Godot boot without ?scene) in a frame. Returning from the background keeps the game
+// running and only asks the worker (metadata, no download) whether a newer build is out.
+// The same shell serves PR builds in /next/<slot>/ (channel "next", see SG_CHANNEL).
+const $ = (id) => document.getElementById(id);
+const SHELL_VERSION = 'aa9e4828e52ffa1e';
+// Rewritten by package_surface_pwa.py. The permanent /surface/ app opens the game's own main menu (no parameters);
+// a PR build in /next/<slot>/ passes the shell's own query to the game, so a link such as ?scene=v3min opens a scene.
+const SG_CHANNEL = {"forwardQuery":true}; // __SURFACE_CHANNEL__
+const SEEN_KEY = 'surface-pwa-seen-v1:' + new URL('./', document.baseURI).pathname;
+let worker = null, current = null, busy = false, launched = false, offlineCandidate = null, installEvent = null;
+// A check whose progress stalls this long asks the worker whether it still owns the download (killed → repeat CHECK).
+const STALL_MS = 12000;
+// A check still waiting for the network this long offers «Играть в загруженную bNN» beside the progress.
+const OFFER_MS = 3000;
+// Back from the background after at least this long: ask (metadata only) whether a newer build is out.
+const RESUME_CHECK_MS = 20000;
+let probe = null, offering = false, resumeChecking = false, hiddenAt = null;
+function updateDiagnostic(phase, data={}){try{window.sgSurfaceDiagnostics?.updateState?.(phase,data);}catch(_){} }
+function hideNotes(){ $('release-notes').hidden=true; $('gate-card').classList.remove('with-notes'); }
+function gate(title, message){
+  $('gate').hidden=false; $('gate-title').textContent=title; $('gate-message').textContent=message;
+  for(const id of ['play','retry','offline'])$(id).hidden=true;
+  $('progress').hidden=false; $('progress').removeAttribute('value'); $('progress-text').textContent=''; hideNotes();
+}
+function validNotes(notes){
+  // Optional metadata: text is never interpreted as HTML; malformed notes are simply not shown.
+  return !!notes && typeof notes.title==='string' && typeof notes.check==='string' && Array.isArray(notes.changes) &&
+    notes.title.length>=1 && notes.title.length<=240 && notes.check.length>=1 && notes.check.length<=240 &&
+    notes.changes.length>=1 && notes.changes.length<=5 && notes.changes.every((line)=>typeof line==='string' && line.length>=1 && line.length<=240);
+}
+function showNotes(release){
+  hideNotes();
+  if(!validNotes(release.notes))return false;
+  const notes=release.notes;
+  $('notes-title').textContent=notes.title;
+  $('notes-build').textContent=`· ${release.build}`;
+  $('notes-check').textContent=`Что проверить: ${notes.check}`;
+  $('notes-changes').replaceChildren(...notes.changes.map((text)=>{const item=document.createElement('li');item.textContent=text;return item;}));
+  $('release-notes').hidden=false; $('gate-card').classList.add('with-notes');
+  return true;
+}
+// undefined = storage unavailable (never block play on it), null = nothing launched on this device yet.
+function seenRelease(){try{return localStorage.getItem(SEEN_KEY);}catch(_){return undefined;}}
+function markSeen(release){try{localStorage.setItem(SEEN_KEY,release.id);}catch(_){} }
+function toast(text){const item=$('toast');item.hidden=true;item.textContent=text;void item.offsetWidth;item.hidden=false;}
+// The query handed to the game frame: only in a channel that forwards it, only plain characters, at most 512 of them.
+function gameQuery(){
+  if(!SG_CHANNEL.forwardQuery)return '';
+  let search='';try{search=String(location.search||'');}catch(_){return '';}
+  return /^\?[A-Za-z0-9_.~%&=+-]{1,512}$/.test(search)?search:'';
+}
+function launch(release, offline=false){ // offline: true (no network) | 'slow' (network did not answer)
+  if(launched)return;
+  launched=true; current=release; markSeen(release);
+  const frame=document.createElement('iframe');
+  frame.id='game-frame'; frame.title='Стратегия'; frame.allow='autoplay; fullscreen; gamepad'; frame.allowFullscreen=true;
+  frame.addEventListener('load',()=>{try{frame.contentWindow.focus();}catch(_){}});
+  try{window.sgSurfaceDiagnostics?.begin?.(release,'menu');}catch(_){}
+  // No ?scene: Godot boot opens «Нажмите, чтобы начать» and then the main menu with the build number.
+  // A /next/ build forwards the shell's query instead (gameQuery), e.g. ?scene=v3min opens that scene.
+  frame.src=new URL(release.base+'index.html'+gameQuery(),document.baseURI).href;
+  $('game').replaceChildren(frame); $('game').hidden=false; $('gate').hidden=true;
+  if(offline)toast(offline==='slow'?`Сеть не отвечает — открыта загруженная сборка ${release.build}`:`Нет сети — открыта загруженная сборка ${release.build}`);
+}
+async function ready(release, offline=false){
+  current=release; $('build').textContent=`Сборка ${release.build}${offline?' · без сети':''}`; $('offline').hidden=true;
+  const seen=seenRelease();
+  // A release new to this device shows its notes and starts on an explicit tap. Known releases,
+  // offline starts and devices without storage go straight into the game.
+  if(!offline && seen!==undefined && seen!==release.id && showNotes(release)){
+    $('gate-title').textContent=seen===null?'Игра загружена':'Обновление загружено';
+    $('gate-message').textContent='Сборка проверена целиком и сохранена на устройстве.';
+    $('progress').hidden=true; $('progress-text').textContent=''; $('play').hidden=false;
+    return;
+  }
+  launch(release, offline);
+}
+function rpc(type, progress, payload={}, connection=null, control=null){
+  return new Promise((resolve,reject)=>{
+    const channel=new MessageChannel(),short=type==='PING' || type==='OFFER';
+    let timer,hardTimer,idleDue,finished=false,lastLoaded=-1,lastFile=null,wasHidden=document.hidden;
+    const visibility=()=>{const returned=wasHidden && !document.hidden;wasHidden=document.hidden;if(returned && !finished)resetIdle();};
+    const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);clearTimeout(hardTimer);document.removeEventListener('visibilitychange',visibility);channel.port1.close();if(error)reject(error);else resolve(data);};
+    const timeout=(code)=>{const error=new Error('Проверка заняла слишком долго. Повторите попытку.');error.code=code;finish(error);};
+    if(control)control.abort=(error)=>finish(error);
+    // The worker gets 60 seconds without asset bytes to return its own error.
+    // Healthy streamed downloads can exceed one file's 15-minute limit overall.
+    const idleTimeout=()=>{
+      // Background/suspended pages may queue byte messages behind their timer.
+      // Give those messages a fresh foreground window; worker deadlines still own
+      // network stalls, and the separate CHECK hard cap never moves.
+      if(!short && (document.hidden || wasHidden || Date.now()-idleDue>1000)){
+        wasHidden=document.hidden;resetIdle();return;
+      }
+      timeout(short?type+'_TIMEOUT':'RPC_IDLE');
+    };
+    const resetIdle=()=>{clearTimeout(timer);const ms=short?10000:120000;idleDue=Date.now()+ms;timer=setTimeout(idleTimeout,ms);};
+    if(!short)document.addEventListener('visibilitychange',visibility);
+    resetIdle();
+    if(!short)hardTimer=setTimeout(()=>timeout('RPC_HARD'),3600000);
+    channel.port1.onmessage=(event)=>{
+      if(finished)return;
+      const data=event.data;
+      if(data.type==='PROGRESS'){
+        if(Number.isFinite(data.loaded) && (data.loaded>lastLoaded || data.file!==lastFile)){
+          lastLoaded=data.loaded;lastFile=data.file;resetIdle();
+        }
+        if(progress)progress(data);return;
+      }
+      finish(null,data);
+    };
+    try{worker=connection?connectionWorker(connection):(navigator.serviceWorker.controller || worker);}
+    catch(error){channel.port2.close();finish(error);return;}
+    if(!worker){channel.port2.close();finish(new Error('Приложение ещё обновляется. Повторите проверку.'));return;}
+    try{worker.postMessage({...payload,type},[channel.port2]);}
+    catch(error){channel.port2.close();finish(error);}
+  });
+}
+function waitForActivation(candidate){
+  if(!candidate || candidate.state==='activated')return Promise.resolve(candidate);
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>finish(new Error('Не удалось завершить обновление приложения. Повторите проверку.')),30000);
+    const finish=(error)=>{clearTimeout(timer);candidate.removeEventListener('statechange',changed);if(error)reject(error);else resolve(candidate);};
+    const changed=()=>{if(candidate.state==='activated')finish();else if(candidate.state==='redundant')finish(new Error('Обновление приложения не завершено. Повторите проверку.'));};
+    candidate.addEventListener('statechange',changed);changed();
+  });
+}
+function waitForController(expected){
+  if(navigator.serviceWorker.controller && (!expected || navigator.serviceWorker.controller===expected))return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>finish(new Error('Приложение ещё устанавливается. Повторите проверку.')),30000);
+    const finish=(error)=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',changed);if(error)reject(error);else resolve();};
+    const changed=()=>{if(navigator.serviceWorker.controller && (!expected || navigator.serviceWorker.controller===expected))finish();};
+    navigator.serviceWorker.addEventListener('controllerchange',changed);changed();
+  });
+}
+// Bound browser registration promises themselves. Timing out a whole async
+// connect job would leave its continuation alive; each leaf settles only once.
+function connectStep(operation){
+  return new Promise((resolve,reject)=>{
+    let finished=false;
+    const finish=(error,value)=>{if(finished)return;finished=true;clearTimeout(timer);if(error)reject(error);else resolve(value);};
+    const timer=setTimeout(()=>{const error=new Error('Подключение к приложению заняло слишком долго. Повторите попытку.');error.code='CONNECT_TIMEOUT';finish(error);},15000);
+    Promise.resolve().then(operation).then((value)=>finish(null,value),(error)=>finish(error));
+  });
+}
+function connectionWorker(connection){
+  const target=connection.target,registration=connection.registration;
+  const pending=registration && (registration.installing || registration.waiting);
+  if(!target || navigator.serviceWorker.controller!==target ||
+    (pending && (pending!==target || pending.state!=='activated')) ||
+    (registration && registration.active && registration.active!==target) ||
+    (connection.candidate && connection.candidate!==target)){
+    throw new Error('Приложение ещё обновляется. Повторите проверку.');
+  }
+  return target;
+}
+async function connect(){
+  if(!('serviceWorker' in navigator) || !window.isSecureContext) throw new Error('Для установки и обновлений откройте приложение по HTTPS.');
+  let registration;
+  const verify=async(candidate=null)=>{
+    const connection={target:navigator.serviceWorker.controller,registration,candidate};
+    connectionWorker(connection);
+    const pong=await rpc('PING',null,{},connection);
+    if(pong.protocol!==1)throw new Error('Обновите страницу, чтобы завершить обновление приложения.');
+    // Installation or a controller swap may have happened during PING. Never
+    // let the old worker's protocol reply authorize CHECK through another one.
+    connectionWorker(connection);
+    updateDiagnostic('update-checking',{workerShell:pong.workerShell,protocol:pong.protocol});
+    return connection;
+  };
+  const existing=async(error,candidate=null)=>{
+    // A usable old controller still owns its verified release cache. CHECK,
+    // not this fallback, decides whether explicit offline play is allowed.
+    try{connectionWorker({target:navigator.serviceWorker.controller,registration,candidate});}
+    catch(_){throw error;}
+    return verify(candidate);
+  };
+  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=aa9e4828e52ffa1e',{scope:'./',updateViaCache:'none'}));}
+  catch(error){
+    try{registration=await connectStep(()=>navigator.serviceWorker.getRegistration('./'));}
+    catch(lookupError){return existing(lookupError);}
+    if(!registration || error.code==='CONNECT_TIMEOUT')return existing(error);
+  }
+  try{await connectStep(()=>registration.update());}
+  catch(error){if(error.code==='CONNECT_TIMEOUT' || !registration.active)return existing(error);}
+  const candidate=registration.installing || registration.waiting;
+  if(candidate)await waitForActivation(candidate);
+  let active;
+  try{active=await connectStep(()=>navigator.serviceWorker.ready);}
+  catch(error){return existing(error,candidate);}
+  await waitForController(candidate || registration.active || active.active);
+  return verify(candidate);
+}
+// While the network is slow or a download stalls, offer the newest complete copy on this device beside the progress.
+async function offer(){
+  if(launched || !busy || offering || offlineCandidate || !navigator.serviceWorker?.controller)return;
+  offering=true;
+  try{
+    const reply=await rpc('OFFER',null,{});
+    if(busy && !launched && !offlineCandidate && reply && reply.type==='OFFER' && reply.offline && reply.offline.build){
+      offlineCandidate=reply.offline;offlineCandidate.slow=true;
+      $('offline').textContent=`Играть в загруженную ${reply.offline.build}`;$('offline').hidden=false;
+    }
+  }catch(_){}finally{offering=false;}
+}
+// One CHECK with a stall watchdog: no progress for STALL_MS (or a return from the background) → PING. A worker that
+// answers busy:0 was killed and restarted (iOS) and lost the download: abort and let check() repeat it at once.
+async function watchedCheck(connection, progress){
+  const control={};
+  let lastActivity=Date.now(),finished=false,probing=false,watch=null;
+  probe=async()=>{
+    if(finished || probing)return;probing=true;
+    try{
+      const pong=await rpc('PING',null,{});
+      if(!finished && pong && pong.busy===0){const error=new Error('Загрузка прервалась. Продолжаем…');error.code='WORKER_LOST';control.abort?.(error);}
+    }catch(_){}finally{probing=false;}
+  };
+  const tick=()=>{watch=setTimeout(tick,STALL_MS);if(Date.now()-lastActivity>=STALL_MS){probe();offer();}};
+  watch=setTimeout(tick,STALL_MS);
+  try{return await rpc('CHECK',(data)=>{lastActivity=Date.now();progress(data);},{},connection,control);}
+  finally{finished=true;probe=null;clearTimeout(watch);}
+}
+async function check(){
+  if(busy || launched)return;busy=true;offlineCandidate=null;gate('Проверяем обновления','Сверяем сборку с сервером перед запуском.');
+  try{window.sgSurfaceDiagnostics?.beginUpdate?.(SHELL_VERSION);}catch(_){}
+  let sawBytes=false;
+  const offerTimer=setTimeout(()=>{if(!sawBytes)offer();},OFFER_MS);
+  try{
+    const connection=await connect();
+    const progress=(data)=>{
+      if(data.loaded>0)sawBytes=true;
+      updateDiagnostic('update-downloading',{file:data.file,loaded:data.loaded,total:data.total,reused:data.reused});
+      if(launched)return;
+      $('gate-title').textContent='Загружаем обновление'; $('gate-message').textContent='Игра откроется, когда сборка будет загружена и проверена целиком.';
+      $('progress').max=data.total||1; $('progress').value=data.loaded;
+      $('progress-text').textContent=`${(data.loaded/1048576).toFixed(1)} / ${(data.total/1048576).toFixed(1)} МБ`;
+    };
+    // The shell checks only before a game exists, so this CHECK never needs to retire a live engine.
+    let result;
+    for(let attempt=0;;attempt++){
+      try{result=await watchedCheck(connection,progress);break;}
+      catch(error){
+        if(error.code!=='WORKER_LOST' || attempt>=2 || launched)throw error;
+        updateDiagnostic('update-retry',{attempt:attempt+1});
+        $('gate-message').textContent='Загрузка прервалась — продолжаем.';
+      }
+    }
+    if(launched){
+      // The player chose the copy on the device meanwhile; a finished download waits for the next launch.
+      if(result.type==='READY' && result.release && result.release.id!==current?.id)toast(`Сборка ${result.release.build} загружена — откроется при следующем запуске`);
+      return;
+    }
+    if(result.type==='READY'){
+      updateDiagnostic('update-ready',{release:result.release?.id,build:result.release?.build});
+      await ready(result.release);
+    }
+    else{
+      updateDiagnostic('update-failed',{error:{code:result.code||'UPDATE',message:result.message||'Не удалось подготовить игру.'}});
+      offlineCandidate=result.offline || null;
+      // No network at all: start the newest complete verified copy right away.
+      if(result.code==='OFFLINE' && offlineCandidate){await ready(offlineCandidate,true);return;}
+      $('gate-title').textContent=result.code==='OFFLINE'?'Нет соединения':'Обновление не завершено';
+      $('gate-message').textContent=(result.message || 'Не удалось подготовить игру.')+
+        (result.code==='OFFLINE'?' Для первого запуска нужна сеть.':'');
+      $('retry').hidden=false; $('progress').hidden=true; $('progress-text').textContent='';
+      $('offline').hidden=!offlineCandidate;
+      if(offlineCandidate)$('offline').textContent=`Играть в загруженную ${offlineCandidate.build}`;
+    }
+  }catch(error){
+    updateDiagnostic('update-failed',{error:{code:error.code||'CONNECT',message:error.message}});
+    if(launched)return;
+    $('gate-title').textContent='Не удалось запустить приложение'; $('gate-message').textContent=error.message; $('retry').hidden=false; $('progress').hidden=true;
+  }
+  finally{busy=false;clearTimeout(offerTimer);}
+}
+// Back from the background: the running game is never interrupted. The worker compares release.json with the
+// running build (metadata only); a newer build shows a banner, and «Обновить» restarts through the normal check.
+async function resumeCheck(){
+  if(resumeChecking || !current || !navigator.serviceWorker?.controller)return;resumeChecking=true;
+  try{
+    const result=await rpc('CHECK',null,{activeReleaseId:current.id});
+    if(result && result.type==='RETIRE_REQUIRED' && result.release && result.release.id!==current.id && result.release.build){
+      $('update-text').textContent=`Вышла сборка ${result.release.build}`;$('update-banner').hidden=false;
+      updateDiagnostic('update-available',{release:result.release.id,build:result.release.build});
+    }
+  }catch(_){}finally{resumeChecking=false;}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){if(hiddenAt===null)hiddenAt=Date.now();return;}
+  const away=hiddenAt===null?0:Date.now()-hiddenAt;hiddenAt=null;
+  if(probe)probe(); // a check in flight asks at once whether its worker survived the background
+  if(launched && away>=RESUME_CHECK_MS)resumeCheck();
+});
+// A frame whose engine failed to start reports it; show the reason and the local report.
+window.addEventListener('message',(event)=>{
+  const frame=$('game-frame'),data=event.data;
+  if(!frame || event.source!==frame.contentWindow || event.origin!==location.origin || !data ||
+    data.type!=='SURFACE_PWA_STATE' || data.phase!=='start-failed')return;
+  gate('Игра не запустилась',typeof data.error==='string' && data.error?data.error.slice(0,240):'Движок не смог стартовать.');
+  $('progress').hidden=true; $('retry').textContent='Перезапустить'; $('retry').hidden=false;
+});
+$('retry').addEventListener('click',()=>launched?location.reload():check());
+$('offline').addEventListener('click',async()=>{if(offlineCandidate && !launched)await ready(offlineCandidate,offlineCandidate.slow && busy?'slow':true);});
+$('update-reload').addEventListener('click',()=>location.reload());
+$('update-later').addEventListener('click',()=>{$('update-banner').hidden=true;});
+$('play').addEventListener('click',()=>{if(current && !launched && !busy && !$('play').hidden)launch(current);});
+window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();installEvent=event;$('install').hidden=false;$('install-tip').hidden=true;});
+$('install').addEventListener('click',async()=>{if(!installEvent)return;await installEvent.prompt();await installEvent.userChoice;installEvent=null;$('install').hidden=true;});
+window.addEventListener('appinstalled',()=>{$('install').hidden=true;$('install-tip').hidden=true;});
+if(matchMedia('(display-mode: standalone)').matches || navigator.standalone)$('install-tip').hidden=true;
+// Check once for this new document (each cold start of the installed app). Unlock, focus,
+// BFCache restoration and returning from the background keep the running game (see resumeCheck).
+check();
+})();
+</script>
+</body>
+</html>
