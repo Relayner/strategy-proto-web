@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "id": "b90-user-test-preliminary-menu-a5-d86fe94-1cd01ed61b48e6c0",
+  "build": "b90-user-test-preliminary-menu-a5-d86fe94",
+  "created_utc": "2026-10-24T13:14:19+00:00",
+  "base": "releases/b90-user-test-preliminary-menu-a5-d86fe94-1cd01ed61b48e6c0/game/",
+  "files": [
+    {
+      "path": "index.144x144.png",
+      "bytes": 2410,
+      "sha256": "98d38a4a70e9e0aab39ccd5bfd8e5dd1054358d2c3e6bba3773212af447e1067"
+    },
+    {
+      "path": "index.180x180.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.512x512.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.apple-touch-icon.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.audio.position.worklet.js",
+      "bytes": 2973,
+      "sha256": "be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8"
+    },
+    {
+      "path": "index.audio.worklet.js",
+      "bytes": 7298,
+      "sha256": "5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3"
+    },
+    {
+      "path": "index.html",
+      "bytes": 12347,
+      "sha256": "3d271776eb4e482d3cf9de1535233c4f5f374100e98e1414e423627f3b9a88c9"
+    },
+    {
+      "path": "index.icon.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.js",
+      "bytes": 315759,
+      "sha256": "e3f56ee40e6f84371053db06692cfac15e2c8659547b11c6b2dfa1996dabd981"
+    },
+    {
+      "path": "index.pck",
+      "bytes": 67314448,
+      "sha256": "aebfaff69025a70da6705b20c279e7f4d08b2fd99bd128e8649e86551190f2e5"
+    },
+    {
+      "path": "index.png",
+      "bytes": 21443,
+      "sha256": "3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e"
+    },
+    {
+      "path": "index.wasm",
+      "bytes": 37700666,
+      "sha256": "26b61ce95247012ab3dca3ff51e96d1cdbff44ee91a8c20a83e150afca83f1b6"
+    },
+    {
+      "path": "kelly53-pooled.zip",
+      "bytes": 101090906,
+      "sha256": "13e88b852556085b6d04e9339266b321e4dc0d7798e3f57d2abd9bc359a71db9"
+    }
+  ],
+  "notes": {
+    "title": "b90 — общая рабочая версия",
+    "changes": [
+      "Wet DROP R2: поддержанные позиции и точные границы float32 без изменения радиусов.",
+      "Дверь R46, стены садка R37 и плитки P47 для допустимых целиком сухих береговых клеток.",
+      "Pooled P41 используется героем и видом от первого лица; новая походка не заявлена.",
+      "Окно нехватки золота: полная цена, бесплатная отмена и явная допустимая частичная стройка.",
+      "Обновлены первые задания, подсказка хранения золота, действия руки и меню паузы."
+    ],
+    "check": "Полная игровая приёмка остаётся владельцу. Проверьте стройку, садок, управление и Save/Reload; минимальная загрузка не подтверждает все сценарии."
+  }
+}
