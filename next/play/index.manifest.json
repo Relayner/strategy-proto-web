@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Стратегия — проверка play",
+  "short_name": "play",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "lang": "ru",
+  "theme_color": "#171c24",
+  "background_color": "#171c24",
+  "description": "Сборка play надземной игры для проверки владельцем. Постоянная игра — по ссылке …/surface/.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

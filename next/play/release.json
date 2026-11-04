@@ -1,0 +1,195 @@
+{
+  "schema": 1,
+  "id": "play-46163c5-7f5193589a51b9a4",
+  "build": "play-46163c5",
+  "created_utc": "2026-11-04T10:52:37+00:00",
+  "base": "releases/play-46163c5-7f5193589a51b9a4/game/",
+  "files": [
+    {
+      "path": "index.144x144.png",
+      "bytes": 2410,
+      "sha256": "98d38a4a70e9e0aab39ccd5bfd8e5dd1054358d2c3e6bba3773212af447e1067"
+    },
+    {
+      "path": "index.180x180.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.512x512.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.apple-touch-icon.png",
+      "bytes": 3285,
+      "sha256": "7d677b5ce1d46da246af68b07c9e6623d2fb859798e36aee93ec9d2da6268dc8"
+    },
+    {
+      "path": "index.audio.position.worklet.js",
+      "bytes": 2973,
+      "sha256": "be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8"
+    },
+    {
+      "path": "index.audio.worklet.js",
+      "bytes": 7298,
+      "sha256": "5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3"
+    },
+    {
+      "path": "index.html",
+      "bytes": 13561,
+      "sha256": "f9f0c011abad8771d9a9bc5cff9db4ddd39fa22600514adb0c432b14a5bd16e4"
+    },
+    {
+      "path": "index.icon.png",
+      "bytes": 10204,
+      "sha256": "02e370bf504b7062ced678a9ce0bb790267cc76f587e9bb22aaa94d712b8b350"
+    },
+    {
+      "path": "index.js",
+      "bytes": 315802,
+      "sha256": "1e66b613922f048ca11aecf0c8ca1563f9bd7e9cc0ed87239789a487d3b1a3c3"
+    },
+    {
+      "path": "index.pck",
+      "bytes": 2760432,
+      "sha256": "5898e609b76e0d26a1a7ad4be49887507ed43691966e99e6fdf3a5c0a45221d8"
+    },
+    {
+      "path": "index.png",
+      "bytes": 21443,
+      "sha256": "3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e"
+    },
+    {
+      "path": "index.wasm",
+      "bytes": 37700666,
+      "sha256": "26b61ce95247012ab3dca3ff51e96d1cdbff44ee91a8c20a83e150afca83f1b6",
+      "parts": [
+        {
+          "path": "index.wasm.p00.gz",
+          "bytes": 2097152,
+          "gz": 545335,
+          "sha256": "81b3ffe0f635d2642781c33070332619ff033bbb8fc4688c56b7f5a05170363f"
+        },
+        {
+          "path": "index.wasm.p01.gz",
+          "bytes": 2097152,
+          "gz": 575110,
+          "sha256": "dca48cffb84303c4b3ef5d76032e0d6909d330be20ed0c64e3131fe1e3344605"
+        },
+        {
+          "path": "index.wasm.p02.gz",
+          "bytes": 2097152,
+          "gz": 496799,
+          "sha256": "4545ea89e9628c0f0f8a20441c5ab09cee35802186a0c1918682ad65a1b72d0e"
+        },
+        {
+          "path": "index.wasm.p03.gz",
+          "bytes": 2097152,
+          "gz": 603453,
+          "sha256": "0cd333734d175246df7b8c856e4b37a1f2c8298e1a27b96cfc76b660a6eade27"
+        },
+        {
+          "path": "index.wasm.p04.gz",
+          "bytes": 2097152,
+          "gz": 668227,
+          "sha256": "6045df9360cb8d3a8a50710870a7eb4b63d1572e2905de96866821c9b2106519"
+        },
+        {
+          "path": "index.wasm.p05.gz",
+          "bytes": 2097152,
+          "gz": 317608,
+          "sha256": "8514551afd131373351092130bae4918dd0869005b5d9c702f63058868281160"
+        },
+        {
+          "path": "index.wasm.p06.gz",
+          "bytes": 2097152,
+          "gz": 220672,
+          "sha256": "6402b77060fcd1fb14fb0cc2c35074dc659aa5789b38e1306528121038ddd03f"
+        },
+        {
+          "path": "index.wasm.p07.gz",
+          "bytes": 2097152,
+          "gz": 572872,
+          "sha256": "b835b960b1f005f96758a1798038f277d4e4ab5e75ce84ccbffd00ce22e43046"
+        },
+        {
+          "path": "index.wasm.p08.gz",
+          "bytes": 2097152,
+          "gz": 591594,
+          "sha256": "94b8d0c7f0c9039e3a1b0f18715939b5a2fd11f0f34e2907a02e58013917a394"
+        },
+        {
+          "path": "index.wasm.p09.gz",
+          "bytes": 2097152,
+          "gz": 512377,
+          "sha256": "5fa8a83a06aa65b6fd26e463b7f1b376b1afe00388d6fe79ecf407b8b5485d03"
+        },
+        {
+          "path": "index.wasm.p10.gz",
+          "bytes": 2097152,
+          "gz": 343299,
+          "sha256": "278affe1a1eb68dc65ba424cb5cc2d3e1274c34c7b0539615ce35b769bf5f3e0"
+        },
+        {
+          "path": "index.wasm.p11.gz",
+          "bytes": 2097152,
+          "gz": 461540,
+          "sha256": "3093365903e1cd8054848160d0fa9a69f2511ad535da55aae2626e3f6319d896"
+        },
+        {
+          "path": "index.wasm.p12.gz",
+          "bytes": 2097152,
+          "gz": 373447,
+          "sha256": "eae32c1cfa6b4805f7aec6abab208ea8729f84addf34d6e7f14a98bc3a29a2eb"
+        },
+        {
+          "path": "index.wasm.p13.gz",
+          "bytes": 2097152,
+          "gz": 495657,
+          "sha256": "b5285456e2ddc28e9882a2ebe878aeced9595d30b4ac3cdabef2bac64840a293"
+        },
+        {
+          "path": "index.wasm.p14.gz",
+          "bytes": 2097152,
+          "gz": 310323,
+          "sha256": "157dbae6bb1ea73ee060b5571ce86f1b3c230c71c315858768d0687e1c6f294a"
+        },
+        {
+          "path": "index.wasm.p15.gz",
+          "bytes": 2097152,
+          "gz": 730298,
+          "sha256": "b2ff3cb0356f80cf901b086afdc48cc7386475be2195eeacf4b9a33e71564fe0"
+        },
+        {
+          "path": "index.wasm.p16.gz",
+          "bytes": 2097152,
+          "gz": 789934,
+          "sha256": "2d37808d4e51bea71768b77ce35ed7649aad7e818a79e95c600dbf4041175fdb"
+        },
+        {
+          "path": "index.wasm.p17.gz",
+          "bytes": 2049082,
+          "gz": 800829,
+          "sha256": "04ce79c145dfdcb91687b31dc80b515604ab3595a233db68ce87928be12fdfa6"
+        }
+      ]
+    }
+  ],
+  "notes": {
+    "title": "Спринт 04.11: меню и состояния, значки, земля без острых углов, повтор после поражения, бой в миссии 0",
+    "changes": [
+      "Меню: одна игра — «Играть» (миссия 0 → миссия 1) и «Начать заново»; кнопки от 44 пунктов, три размера текста, нажатая кнопка вдавливается.",
+      "В игре: значки в панелях вместо пустых квадратов, строка цели на экране миссии 1; земля без квадратных стыков — сетка и расчёты прежние, только рендер.",
+      "Миссия 0: первая пауза боя теперь учит приказу «Атаковать» — ступень «Чужие у берега».",
+      "Поражение не стирает партию: кнопка «Повторить с последнего сохранения» и строка причины.",
+      "Это серая сборка от 04.11 плюс пять утренних правок — смотрим поведение, землю и число кадров, картинку не смотрим."
+    ],
+    "check": "iPhone, Safari, альбомно: меню — три размера текста, кнопки вдавливаются; миссия 0 — пауза боя с подсказкой «Атаковать»; миссия 1 — земля без квадратных стыков, кадров в углу не ниже 45; проиграть — кнопка «Повторить»."
+  },
+  "source": {
+    "repo": "Relayner/cloudcodex",
+    "branch": "claude/surface-sprint-build-20261104",
+    "commit": "459c0d4279c670d89eee0065ea8e2366ebccd66c"
+  }
+}
