@@ -501,9 +501,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.SurfacePwa;
 })(globalThis);
 
-/* 96f071ff28818a18 and the integrity core are injected by package_surface_pwa.py. */
+/* 0507876a9a7c9591 and the integrity core are injected by package_surface_pwa.py. */
 'use strict';
-const SHELL_VERSION = '96f071ff28818a18';
+const SHELL_VERSION = '0507876a9a7c9591';
 const SCOPE = self.registration.scope;
 const releases = new SurfacePwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;

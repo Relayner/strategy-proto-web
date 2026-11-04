@@ -113,9 +113,9 @@ dialog p{font-size:var(--fs-small);color:var(--muted);line-height:1.5}
         </header>
         <nav class="gate-actions menu" aria-label="Меню">
           <button id="play" class="primary" disabled>Играть</button>
-          <button id="play-new" disabled>Новая игра</button>
-          <button id="play-demo" disabled>Демо: первые 5 минут</button>
-          <button id="more" class="quiet" disabled aria-expanded="false">Ещё…</button>
+          <button id="play-new" disabled>Начать заново</button>
+          <button id="play-demo" disabled hidden>Демо: первые 5 минут</button>
+          <button id="more" class="quiet" disabled hidden aria-expanded="false">Ещё…</button>
           <div id="more-menu" class="more-menu" hidden>
             <button id="play-mission1" disabled>Миссия 1</button>
             <button id="play-sandbox" disabled>Тест-миссия</button>
@@ -399,7 +399,7 @@ dialog p{font-size:var(--fs-small);color:var(--muted);line-height:1.5}
 // The same shell serves PR builds in /next/<slot>/ (channel "next", see SG_CHANNEL): a forwarded query such as
 // ?scene=v3min opens that scene at once, as a deep link for the owner's checks.
 const $ = (id) => document.getElementById(id);
-const SHELL_VERSION = '96f071ff28818a18';
+const SHELL_VERSION = '0507876a9a7c9591';
 // Rewritten by package_surface_pwa.py. The permanent /surface/ app opens the game's own main menu (no parameters);
 // a PR build in /next/<slot>/ passes the shell's own query to the game, so a link such as ?scene=v3min opens a scene.
 const SG_CHANNEL = {"forwardQuery":true}; // __SURFACE_CHANNEL__
@@ -620,7 +620,7 @@ async function connect(){
     catch(_){throw error;}
     return verify(candidate);
   };
-  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=96f071ff28818a18',{scope:'./',updateViaCache:'none'}));}
+  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=0507876a9a7c9591',{scope:'./',updateViaCache:'none'}));}
   catch(error){
     try{registration=await connectStep(()=>navigator.serviceWorker.getRegistration('./'));}
     catch(lookupError){return existing(lookupError);}
