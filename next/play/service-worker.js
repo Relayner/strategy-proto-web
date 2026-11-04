@@ -393,7 +393,9 @@
 					await accepted.put(url, await cache.match(url));
 				}
 				// The final marker is the commit barrier. Until this write, no partial release can be played.
-				await accepted.put(this.marker, new Response(JSON.stringify(release), {headers: {'Content-Type': 'application/json'}}));
+				// X-Surface-Installed: when this build became playable on the device (the menu shows «обновлено ДД.ММ ЧЧ:ММ»).
+				await accepted.put(this.marker, new Response(JSON.stringify(release), {headers: {'Content-Type': 'application/json',
+					'X-Surface-Installed': new Date(this.now()).toISOString()}}));
 				try { await this.caches.delete(this.partsCacheName(release)); } catch (_) {}
 				return release;
 			} finally {
@@ -450,6 +452,15 @@
 			if (wanted && await this.ready(wanted)) return wanted;
 			return this.newestComplete();
 		}
+		// When the release was committed on this device (ISO time from the marker), or null (older markers, no cache).
+		async installedAt(release) {
+			if (!release || !/^[a-zA-Z0-9_-]{1,96}$/.test(release.id || '')) return null;
+			try {
+				const marker = await (await this.caches.open(this.cacheName(release))).match(this.marker);
+				const value = marker && marker.headers.get('X-Surface-Installed');
+				return value && /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(value) ? value : null;
+			} catch (_) { return null; }
+		}
 		async newestComplete() {
 			const completed = [];
 			for (const name of await this.caches.keys()) {
@@ -501,9 +512,9 @@
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.SurfacePwa;
 })(globalThis);
 
-/* 71f78596ce9344ce and the integrity core are injected by package_surface_pwa.py. */
+/* 913db087162e92ed and the integrity core are injected by package_surface_pwa.py. */
 'use strict';
-const SHELL_VERSION = '71f78596ce9344ce';
+const SHELL_VERSION = '913db087162e92ed';
 const SCOPE = self.registration.scope;
 const releases = new SurfacePwa.ReleaseCache({scope: SCOPE, caches, fetch: self.fetch.bind(self), crypto});
 const SHELL_CACHE = releases.prefix + 'shell-' + SHELL_VERSION;
@@ -596,6 +607,21 @@ async function navigationShell() {
 	}
 }
 
+// What the menu shows about the build on this device: when it was installed and whether everything a start without
+// network needs is stored (the app shell files and the complete verified release). Never throws.
+async function localInfo(release) {
+	if (!release) return {installed: null, offlineReady: false};
+	let installed = null, offlineReady = false;
+	try { installed = await releases.installedAt(release); } catch (_) {}
+	try {
+		const cache = await caches.open(SHELL_CACHE);
+		let shell = true;
+		for (const path of SHELL_FILES) if (!(await cache.match(new URL(path, SCOPE).href))) { shell = false; break; }
+		offlineReady = shell && await releases.ready(release);
+	} catch (_) {}
+	return {installed, offlineReady};
+}
+
 self.addEventListener('install', (event) => {
 	event.waitUntil((async () => {
 		const cache = await caches.open(SHELL_CACHE);
@@ -625,7 +651,7 @@ self.addEventListener('message', (event) => {
 		event.waitUntil((async () => {
 			let offline = null;
 			try { offline = await releases.offlineCandidate(); } catch (_) {}
-			port.postMessage({type: 'OFFER', offline});
+			port.postMessage({type: 'OFFER', offline, local: await localInfo(offline)});
 		})());
 		return;
 	}
@@ -639,7 +665,7 @@ self.addEventListener('message', (event) => {
 				port.postMessage({type: 'RETIRE_REQUIRED', ...result});
 				return;
 			}
-			port.postMessage({type: 'READY', ...result});
+			port.postMessage({type: 'READY', ...result, local: await localInfo(result.release)});
 			const clients = await self.clients.matchAll({includeUncontrolled: true});
 			const active = clients.map((client) => client.url.match(/\/releases\/([a-zA-Z0-9_-]+)\/game\//)?.[1]).filter(Boolean);
 			// The advertised release is kept even when older than two others (a rollback): its frame opens after «Играть».
@@ -649,7 +675,9 @@ self.addEventListener('message', (event) => {
 			// starts it by itself only for OFFLINE; other failures ask the player first.
 			let offline = null;
 			try { offline = await releases.offlineCandidate(); } catch (_) {}
-			port.postMessage({type: 'ERROR', code: error.code || 'STORAGE', message: error.message, offline});
+			let local = null;
+			try { local = await localInfo(offline); } catch (_) {}
+			port.postMessage({type: 'ERROR', code: error.code || 'STORAGE', message: error.message, offline, local});
 		} finally { checking--; }
 	})());
 });

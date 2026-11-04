@@ -95,6 +95,15 @@ dialog p{font-size:var(--fs-small);color:var(--muted);line-height:1.5}
 .gate-actions.menu:has(> #more-menu:not([hidden])){display:grid;grid-template-columns:minmax(220px,260px) minmax(200px,240px);column-gap:8px;align-content:start}
 .gate-actions.menu:has(> #more-menu:not([hidden])) > button{grid-column:1}
 .gate-actions.menu > #more-menu{grid-column:2;grid-row:1 / span 4;align-self:start}}
+/* Owner 04.11: the footer line says which build is on the phone, when it got there and whether it starts without network
+   (app.js buildLine). The mark before «офлайн готов» is drawn: an accent dot — ready, a hollow ring — needs network. */
+#build[data-offline]::after{content:"";display:inline-block;width:8px;height:8px;margin:0 0 1px 6px;border-radius:50%;vertical-align:middle}
+#build[data-offline=ready]::after{background:var(--accent)}
+#build[data-offline=network]::after{border:1.5px solid var(--muted)}
+/* iPhone cannot turn a home-screen app by itself (WebKit bug 257695): in portrait a line above «Играть» asks to turn the
+   phone, «Играть» stays live, and the game simply continues once the phone is turned. No full-screen barrier. */
+.rotate-hint{display:none;margin:0;font-size:var(--fs-small);color:var(--accent);text-align:center;line-height:1.35}
+@media (orientation:portrait) and (max-width:760px){.rotate-hint{display:block}}
 </style>
 </head>
 <body>
@@ -112,6 +121,7 @@ dialog p{font-size:var(--fs-small);color:var(--muted);line-height:1.5}
           <p id="progress-text"></p>
         </header>
         <nav class="gate-actions menu" aria-label="Меню">
+          <p id="rotate-hint" class="rotate-hint">Поверните телефон — игра в альбомной</p>
           <button id="play" class="primary" disabled>Играть</button>
           <button id="play-new" disabled>Начать заново</button>
           <button id="play-demo" disabled hidden>Демо: первые 5 минут</button>
@@ -121,13 +131,13 @@ dialog p{font-size:var(--fs-small);color:var(--muted);line-height:1.5}
             <button id="play-sandbox" disabled>Тест-миссия</button>
             <button id="play-bench" disabled>Бенчмарк</button>
           </div>
-          <button id="update" class="accent" hidden>Обновить</button>
           <button id="retry" hidden>Повторить проверку</button>
           <button id="offline" hidden>Играть в загруженную сборку</button>
           <button id="install" hidden>Установить приложение</button>
         </nav>
         <footer class="gate-footer">
           <button id="sound" class="quiet" aria-pressed="true">Звук: вкл</button>
+          <button id="update" class="quiet">Обновить</button>
           <button id="gate-diagnostics" class="quiet">Отчёт о запуске</button>
           <p id="install-tip" class="tip">На iPhone: «Поделиться» → «На экран „Домой“»</p>
           <p id="build"></p>
@@ -399,7 +409,7 @@ dialog p{font-size:var(--fs-small);color:var(--muted);line-height:1.5}
 // The same shell serves PR builds in /next/<slot>/ (channel "next", see SG_CHANNEL): a forwarded query such as
 // ?scene=v3min opens that scene at once, as a deep link for the owner's checks.
 const $ = (id) => document.getElementById(id);
-const SHELL_VERSION = '71f78596ce9344ce';
+const SHELL_VERSION = '913db087162e92ed';
 // Rewritten by package_surface_pwa.py. The permanent /surface/ app opens the game's own main menu (no parameters);
 // a PR build in /next/<slot>/ passes the shell's own query to the game, so a link such as ?scene=v3min opens a scene.
 const SG_CHANNEL = {"forwardQuery":true}; // __SURFACE_CHANNEL__
@@ -416,6 +426,10 @@ const RESUME_CHECK_MS = 20000;
 const INTENTS = {'play':'continue','play-new':'mission0','play-demo':'demo','play-mission1':'mission1v3','play-sandbox':'sandbox','play-bench':'bench'};
 const MENU_BUTTONS = Object.keys(INTENTS).concat(['more']);
 let probe = null, offering = false, resumeChecking = false, hiddenAt = null, pendingRelease = null, localProbed = false;
+// The worker's word on the build on this device: {installed: ISO | null, offlineReady: bool} (service_worker.js localInfo).
+let local = null, workerShell = null;
+// Fallback install time for releases committed before the marker carried it: the first moment the menu ran on them here.
+const INSTALLED_KEY = 'surface-pwa-installed-v1:' + new URL('./', document.baseURI).pathname;
 function updateDiagnostic(phase, data={}){try{window.sgSurfaceDiagnostics?.updateState?.(phase,data);}catch(_){} }
 function hideNotes(){ $('release-notes').hidden=true; $('gate-card').classList.remove('with-notes'); }
 // The status line carries a drawn state badge (app.css, #gate[data-state]): checking / loading — a turning ring,
@@ -451,6 +465,29 @@ function showNotes(release){
 // undefined = storage unavailable (never block play on it), null = nothing launched on this device yet.
 function seenRelease(){try{return localStorage.getItem(SEEN_KEY);}catch(_){return undefined;}}
 function markSeen(release){try{localStorage.setItem(SEEN_KEY,release.id);}catch(_){} }
+function remembered(){try{const value=JSON.parse(localStorage.getItem(INSTALLED_KEY)||'{}');return value && typeof value==='object'?value:{};}catch(_){return {};}}
+// When the build in the menu got onto this device: the worker's marker time, else the first menu on it here (kept for two ids).
+function installedAt(release){
+  const own=local && local.id===release.id?local.installed:null;
+  const known=remembered();
+  if(own)return own;
+  if(typeof known[release.id]==='string')return known[release.id];
+  const now=new Date(Date.now()).toISOString();
+  try{const keep={};for(const [id,time] of Object.entries(known).slice(-1))keep[id]=time;keep[release.id]=now;localStorage.setItem(INSTALLED_KEY,JSON.stringify(keep));}catch(_){}
+  return now;
+}
+const pad=(value)=>String(value).padStart(2,'0');
+function stamp(iso){const time=new Date(iso);if(Number.isNaN(time.getTime()))return '';return `${pad(time.getDate())}.${pad(time.getMonth()+1)} ${pad(time.getHours())}:${pad(time.getMinutes())}`;}
+// Footer line: build number, when it got onto this phone, and whether a start without network is ready (drawn mark in app.css).
+function buildLine(release){
+  const when=stamp(installedAt(release));
+  const offline=local && local.id===release.id?(local.offlineReady?'ready':'network'):'';
+  $('build').textContent=`Сборка ${release.build}${when?` · обновлено ${when}`:''}${offline==='ready'?' · офлайн готов':offline==='network'?' · нужна сеть':''}`;
+  if(offline)$('build').setAttribute('data-offline',offline);else $('build').removeAttribute('data-offline');
+}
+function noteLocal(release, info){
+  if(release && info && typeof info==='object')local={id:release.id,installed:typeof info.installed==='string'?info.installed:null,offlineReady:info.offlineReady===true};
+}
 function toast(text){const item=$('toast');item.hidden=true;item.textContent=text;void item.offsetWidth;item.hidden=false;}
 // The query handed to the game frame: only in a channel that forwards it, only plain characters, at most 512 of them.
 function forwardedQuery(){
@@ -490,7 +527,7 @@ function closeGame(){
 function menuReady(release, offline=false){
   current=release; offlineCandidate=null;
   title('Стратегия');
-  $('build').textContent=`Сборка ${release.build}${offline?' · без сети':''}`;
+  buildLine(release);
   for(const id of ['retry','offline'])$(id).hidden=true;
   progressVisible(false); enableMenu(true);
   const seen=seenRelease();
@@ -610,6 +647,7 @@ async function connect(){
     // Installation or a controller swap may have happened during PING. Never
     // let the old worker's protocol reply authorize CHECK through another one.
     connectionWorker(connection);
+    workerShell=typeof pong.workerShell==='string'?pong.workerShell:null;
     updateDiagnostic('update-checking',{workerShell:pong.workerShell,protocol:pong.protocol});
     return connection;
   };
@@ -620,7 +658,7 @@ async function connect(){
     catch(_){throw error;}
     return verify(candidate);
   };
-  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=71f78596ce9344ce',{scope:'./',updateViaCache:'none'}));}
+  try{registration=await connectStep(()=>navigator.serviceWorker.register('service-worker.js?v=913db087162e92ed',{scope:'./',updateViaCache:'none'}));}
   catch(error){
     try{registration=await connectStep(()=>navigator.serviceWorker.getRegistration('./'));}
     catch(lookupError){return existing(lookupError);}
@@ -644,7 +682,7 @@ async function localProbe(){
   try{
     const reply=await rpc('OFFER',null,{});
     if(!launched && !current && reply && reply.type==='OFFER' && reply.offline && reply.offline.build){
-      offlineCandidate=reply.offline;
+      offlineCandidate=reply.offline; noteLocal(reply.offline,reply.local);
       if(forwardedQuery())return; // a deep link waits for the check or its offline fallback
       menuReady(reply.offline,false);
       if(busy)status('Сборка с устройства. Проверяем обновления…','checking');
@@ -658,7 +696,7 @@ async function offer(){
   try{
     const reply=await rpc('OFFER',null,{});
     if(busy && !launched && !offlineCandidate && reply && reply.type==='OFFER' && reply.offline && reply.offline.build){
-      offlineCandidate=reply.offline;offlineCandidate.slow=true;
+      offlineCandidate=reply.offline;offlineCandidate.slow=true;noteLocal(reply.offline,reply.local);
       $('offline').textContent=`Играть в загруженную ${reply.offline.build}`;$('offline').hidden=false;
     }
   }catch(_){}finally{offering=false;}
@@ -680,8 +718,9 @@ async function watchedCheck(connection, progress){
   try{return await rpc('CHECK',(data)=>{lastActivity=Date.now();progress(data);},{},connection,control);}
   finally{finished=true;probe=null;clearTimeout(watch);}
 }
-async function check(){
+async function check(manual=false){
   if(busy || launched)return;busy=true;
+  const before=current?current.id:null;
   if(!current){offlineCandidate=null;gate('Проверяем обновления','Сверяем сборку с сервером перед запуском.');}
   else status('Проверяем обновления…','checking');
   try{window.sgSurfaceDiagnostics?.beginUpdate?.(SHELL_VERSION);}catch(_){}
@@ -716,11 +755,17 @@ async function check(){
     }
     if(result.type==='READY'){
       updateDiagnostic('update-ready',{release:result.release?.id,build:result.release?.build});
+      noteLocal(result.release,result.local);
+      // «Обновить» found a newer menu (shell) installed by the worker: restart the page with it — the game build is ready.
+      if(manual && workerShell && !SHELL_VERSION.startsWith('__') && workerShell!==SHELL_VERSION){location.reload();return;}
       await ready(result.release);
+      if(manual && !launched && before && result.release.id===before)status(`У вас последняя версия — ${result.release.build}.`,'ready');
     }
     else{
       updateDiagnostic('update-failed',{error:{code:result.code||'UPDATE',message:result.message||'Не удалось подготовить игру.'}});
       offlineCandidate=result.offline || offlineCandidate || null;
+      if(result.offline)noteLocal(result.offline,result.local);
+      if(current && local && local.id===current.id)buildLine(current);
       if(current){
         // The menu already runs on a complete release: the failed check is a note beside a retry, not a wall.
         status((result.code==='OFFLINE'?'Нет сети — ':'Обновление не завершено — ')+`играем в сборку ${current.build}.`,result.code==='OFFLINE'?'offline':'error');
@@ -772,10 +817,23 @@ window.addEventListener('message',(event)=>{
   progressVisible(false); $('retry').textContent='Перезапустить'; $('retry').hidden=false;
 });
 function unlockAudio(){ if(audio)audio.unlock(); }
+// The «Играть» tap is the player's gesture for everything the game used to ask a second tap for: storage that is not
+// evicted, full screen and landscape where the browser allows it (Android; iPhone's home-screen app is already full
+// screen and cannot lock the orientation — WebKit bug 257695), audio. The game then opens past its own tap screen.
+function gestureForGame(){
+  try{navigator.storage?.persist?.().catch?.(()=>{});}catch(_){}
+  try{
+    const standalone=matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const root=document.documentElement;
+    if(!standalone && document.fullscreenEnabled && !document.fullscreenElement && matchMedia('(pointer: coarse)').matches && root.requestFullscreen){
+      root.requestFullscreen({navigationUI:'hide'}).then(()=>screen.orientation?.lock?.('landscape')).catch(()=>{});
+    } else screen.orientation?.lock?.('landscape')?.catch?.(()=>{});
+  }catch(_){}
+}
 for(const [id,intent] of Object.entries(INTENTS)){
   $(id).addEventListener('click',()=>{
     if(!current || launched || $(id).disabled)return;
-    unlockAudio(); if(audio)audio.confirm();
+    unlockAudio(); gestureForGame(); if(audio)audio.confirm();
     launch(current,false,intent);
   });
 }
@@ -800,7 +858,15 @@ document.addEventListener('touchstart',()=>{},{passive:true});
 $('gate').addEventListener('touchend',unlockAudio,{passive:true});
 $('retry').addEventListener('click',()=>launched?location.reload():check());
 $('offline').addEventListener('click',async()=>{if(offlineCandidate && !launched)await ready(offlineCandidate,offlineCandidate.slow && busy?'slow':true);});
-$('update').addEventListener('click',()=>{if(pendingRelease && !launched){const next=pendingRelease;pendingRelease=null;adopt(next);} });
+// «Обновить»: check for a newer build now (the automatic check at start stays). Newer → downloaded, verified and
+// adopted in the menu («Обновление загружено», notes); same → «У вас последняя версия». Busy → the running check answers.
+$('update').addEventListener('click',()=>{
+  if(launched)return;
+  unlockAudio(); if(audio)audio.click();
+  if(pendingRelease){const next=pendingRelease;pendingRelease=null;adopt(next);return;}
+  if(busy){status('Проверяем обновления…','checking');return;}
+  check(true);
+});
 $('update-reload').addEventListener('click',()=>{if(audio)audio.click();location.reload();});
 $('update-later').addEventListener('click',()=>{$('update-banner').hidden=true;});
 window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();installEvent=event;$('install').hidden=false;$('install-tip').hidden=true;});
